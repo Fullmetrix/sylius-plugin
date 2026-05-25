@@ -39,6 +39,9 @@ final class GiftCouponSubscriber implements EventSubscriberInterface
                 continue;
             }
             $item->setUnitPrice(0);
+            if ($item->getQuantity() !== 1) {
+                $item->setQuantity(1);
+            }
         }
     }
 
