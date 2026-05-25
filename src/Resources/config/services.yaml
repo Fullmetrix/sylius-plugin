@@ -15,12 +15,35 @@ services:
 
     Fullmetrix\SyliusPlugin\Service\:
         resource: '../../Service/*'
+        exclude:
+            - '../../Service/CouponCommandHandler.php'
+
+    Fullmetrix\SyliusPlugin\Service\CouponCommandHandler:
+        arguments:
+            $em: '@doctrine.orm.entity_manager'
+            $promotionFactory: '@sylius.factory.promotion'
+            $couponFactory: '@sylius.factory.promotion_coupon'
+            $promotionActionFactory: '@sylius.factory.promotion_action'
+            $promotionRuleFactory: '@sylius.factory.promotion_rule'
 
     Fullmetrix\SyliusPlugin\EventSubscriber\:
         resource: '../../EventSubscriber/*'
 
     Fullmetrix\SyliusPlugin\Controller\:
         resource: '../../Controller/*'
+        exclude:
+            - '../../Controller/Shop/CartRecoveryController.php'
+        public: true
+        tags: ['controller.service_arguments']
+
+    Fullmetrix\SyliusPlugin\Controller\Shop\CartRecoveryController:
+        arguments:
+            $config: '@Fullmetrix\SyliusPlugin\Service\ConfigStore'
+            $cartContext: '@sylius.context.cart'
+            $productVariantRepository: '@sylius.repository.product_variant'
+            $orderItemFactory: '@sylius.factory.order_item'
+            $itemQuantityModifier: '@sylius.order_item_quantity_modifier'
+            $urls: '@router'
         public: true
         tags: ['controller.service_arguments']
 

@@ -29,7 +29,7 @@ final class DashboardController
     {
         $tab = (string) $request->query->get('tab', 'connection');
 
-        return new Response($this->twig->render('@Fullmetrix/admin/dashboard.html.twig', [
+        return new Response($this->twig->render('@FullmetrixPlugin/admin/dashboard.html.twig', [
             'tab' => $tab,
             'registered' => $this->config->isRegistered(),
             'connection_code' => $this->config->getConnectionCode(),
