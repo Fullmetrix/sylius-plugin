@@ -1,0 +1,37 @@
+{% if registered %}
+    <div class="ui green message">
+        <p>Your store is connected and ready to sync data with Fullmetrix.</p>
+    </div>
+
+    <div class="ui form">
+        <div class="field">
+            <label>Connection code</label>
+            <input type="text" value="{{ connection_code }}" readonly>
+        </div>
+    </div>
+
+    <form action="{{ path('fullmetrix_admin_disconnect') }}" method="post" class="ui form" style="margin-top: 1em;">
+        <button type="submit" class="ui button">Disconnect</button>
+    </form>
+{% else %}
+    <p>Enter the connection code provided by Fullmetrix to connect your store.</p>
+
+    {% if error|default(null) %}
+        <div class="ui red message">
+            <p>Connection failed: {{ error }}</p>
+        </div>
+    {% endif %}
+
+    <form action="{{ path('fullmetrix_admin_connection') }}" method="post" class="ui form">
+        <div class="field">
+            <label>Connection code</label>
+            <input type="text"
+                   name="connection_code"
+                   value="{{ submitted_code|default('') }}"
+                   placeholder="FMTX-XXXX-XXXX-XXXX"
+                   pattern="FMTX-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}"
+                   required>
+        </div>
+        <button type="submit" class="ui primary button">Connect</button>
+    </form>
+{% endif %}

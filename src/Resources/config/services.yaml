@@ -1,0 +1,31 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+        bind:
+            string $apiBase: '%fullmetrix.api_base%'
+            string $webhookEndpoint: '%fullmetrix.webhook_endpoint%'
+            string $eventsEndpoint: '%fullmetrix.events_endpoint%'
+            string $consentEndpoint: '%fullmetrix.consent_endpoint%'
+            string $trackerOrigin: '%fullmetrix.tracker_origin%'
+            int $connectTimeoutMs: '%fullmetrix.connect_timeout_ms%'
+            int $totalTimeoutMs: '%fullmetrix.total_timeout_ms%'
+            string $pluginVersion: '1.0.0'
+
+    Fullmetrix\SyliusPlugin\Service\:
+        resource: '../../Service/*'
+
+    Fullmetrix\SyliusPlugin\EventSubscriber\:
+        resource: '../../EventSubscriber/*'
+
+    Fullmetrix\SyliusPlugin\Controller\:
+        resource: '../../Controller/*'
+        public: true
+        tags: ['controller.service_arguments']
+
+    Fullmetrix\SyliusPlugin\Exporter\:
+        resource: '../../Exporter/*'
+
+    Fullmetrix\SyliusPlugin\Security\:
+        resource: '../../Security/*'

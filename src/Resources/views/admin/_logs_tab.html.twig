@@ -1,0 +1,42 @@
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1em;">
+    <h3 class="ui header" style="margin: 0;">Recent activity</h3>
+    <form action="{{ path('fullmetrix_admin_logs_clear') }}" method="post">
+        <button type="submit" class="ui small button">Clear logs</button>
+    </form>
+</div>
+
+{% if logs is empty %}
+    <p>No logs yet.</p>
+{% else %}
+    <table class="ui very compact table">
+        <thead>
+            <tr>
+                <th>When</th>
+                <th>Type</th>
+                <th>Message</th>
+                <th>Count</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in logs %}
+                <tr>
+                    <td>{{ log.created_at }}</td>
+                    <td>
+                        {% set color = {
+                            'registered': 'green',
+                            'disconnected': 'grey',
+                            'sync_start': 'blue',
+                            'sync_complete': 'green',
+                            'sync_error': 'red',
+                            'webhook': 'orange',
+                            'command': 'teal'
+                        }[log.type]|default('grey') %}
+                        <span class="ui {{ color }} label">{{ log.type }}</span>
+                    </td>
+                    <td>{{ log.message }}</td>
+                    <td>{{ log.count }}</td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
