@@ -1,0 +1,16 @@
+{% extends '@SyliusAdmin/shared/layout/base.html.twig' %}
+
+{% block title %}Fullmetrix {{ parent() }}{% endblock %}
+
+{% block body %}
+    {% hook ['sylius_admin.fullmetrix.index', 'sylius_admin.common.index'] with {
+        registered: registered,
+        connection_code: connection_code,
+        error: error,
+        submitted_code: submitted_code,
+        last_sync: last_sync,
+        export_count: export_count,
+        webhooks_enabled: webhooks_enabled,
+        logs: logs,
+    } %}
+{% endblock %}

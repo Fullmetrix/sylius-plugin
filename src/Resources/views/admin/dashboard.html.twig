@@ -1,0 +1,28 @@
+{% extends '@SyliusAdmin/layout.html.twig' %}
+
+{% block title %}Fullmetrix{% endblock %}
+
+{% block content %}
+<div class="ui segment">
+    <h2 class="ui header">Fullmetrix</h2>
+
+    <div class="ui top attached tabular menu">
+        <a class="item {{ tab == 'connection' ? 'active' : '' }}"
+           href="{{ path('fullmetrix_admin_connection', {'tab': 'connection'}) }}">Connection</a>
+        <a class="item {{ tab == 'sync' ? 'active' : '' }}"
+           href="{{ path('fullmetrix_admin_connection', {'tab': 'sync'}) }}">Sync Activity</a>
+        <a class="item {{ tab == 'logs' ? 'active' : '' }}"
+           href="{{ path('fullmetrix_admin_connection', {'tab': 'logs'}) }}">Logs</a>
+    </div>
+
+    <div class="ui bottom attached segment">
+        {% if tab == 'connection' %}
+            {% include '@FullmetrixPlugin/admin/_connection_tab.html.twig' %}
+        {% elseif tab == 'sync' %}
+            {% include '@FullmetrixPlugin/admin/_sync_tab.html.twig' %}
+        {% elseif tab == 'logs' %}
+            {% include '@FullmetrixPlugin/admin/_logs_tab.html.twig' %}
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

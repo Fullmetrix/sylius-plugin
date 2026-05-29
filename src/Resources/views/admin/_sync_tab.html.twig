@@ -1,0 +1,33 @@
+<div class="ui list">
+    <div class="item">
+        <div class="header">Webhooks</div>
+        <div>{{ webhooks_enabled ? 'Enabled' : 'Disabled' }}</div>
+    </div>
+    <div class="item">
+        <div class="header">Export requests processed</div>
+        <div>{{ export_count }}</div>
+    </div>
+
+    {% if sync_in_progress %}
+        <div class="item">
+            <div class="header">Sync in progress</div>
+            <div>{{ sync_in_progress.type|default('-') }} ({{ sync_in_progress.sync_type|default('-') }})</div>
+        </div>
+    {% endif %}
+
+    {% if last_sync %}
+        <div class="item">
+            <div class="header">Last sync</div>
+            <div>
+                {% if last_sync.completed_at is defined %}
+                    {{ last_sync.completed_at|date('Y-m-d H:i:s') }}
+                {% endif %}
+                {% if last_sync.type is defined %} - {{ last_sync.type }}{% endif %}
+            </div>
+        </div>
+    {% else %}
+        <div class="item">
+            <div>No sync yet. Fullmetrix will initiate the first sync after connection.</div>
+        </div>
+    {% endif %}
+</div>
