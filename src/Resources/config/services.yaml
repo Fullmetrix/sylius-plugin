@@ -42,7 +42,7 @@ services:
             $cartContext: '@sylius.context.cart'
             $productVariantRepository: '@sylius.repository.product_variant'
             $orderItemFactory: '@sylius.factory.order_item'
-            $itemQuantityModifier: '@sylius.order_item_quantity_modifier'
+            $itemQuantityModifier: '@Sylius\Component\Order\Modifier\OrderItemQuantityModifierInterface'
             $urls: '@router'
         public: true
         tags: ['controller.service_arguments']

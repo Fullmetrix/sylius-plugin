@@ -32,7 +32,7 @@ class FullmetrixLog
     #[ORM\Column(type: 'integer')]
     private int $count = 1;
 
-    #[ORM\Column(type: 'datetime_immutable')]
+    #[ORM\Column(name: 'created_at', type: 'datetime_immutable')]
     private \DateTimeImmutable $createdAt;
 
     public function __construct(string $type, string $message, ?array $details, string $fingerprint)
