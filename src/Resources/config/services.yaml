@@ -47,8 +47,5 @@ services:
         public: true
         tags: ['controller.service_arguments']
 
-    Fullmetrix\SyliusPlugin\Exporter\:
-        resource: '../../Exporter/*'
-
     Fullmetrix\SyliusPlugin\Security\:
         resource: '../../Security/*'
