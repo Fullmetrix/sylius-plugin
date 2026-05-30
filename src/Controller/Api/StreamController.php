@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class StreamController
 {
-    private const ENTITIES = ['orders', 'customers', 'products', 'categories', 'coupons'];
+    private const ENTITIES = ['orders', 'customers', 'products', 'categories', 'coupons', 'refunds'];
 
     public function __construct(
         private readonly HmacRequestVerifier $verifier,

@@ -37,6 +37,9 @@ final class EntityPaginator
         if ('coupons' === $entity) {
             $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
         }
+        if ('refunds' === $entity) {
+            $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
+        }
         if (null !== $since && $this->hasUpdatedAtField($class)) {
             $qb->andWhere('e.updatedAt >= :since')->setParameter('since', new \DateTimeImmutable($since));
         }
@@ -73,6 +76,9 @@ final class EntityPaginator
             if ('coupons' === $entity) {
                 $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
             }
+            if ('refunds' === $entity) {
+                $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
+            }
             if (null !== $since && $this->hasUpdatedAtField($class)) {
                 $qb->andWhere('e.updatedAt >= :since')->setParameter('since', new \DateTimeImmutable($since));
             }
@@ -108,6 +114,9 @@ final class EntityPaginator
         if ('coupons' === $entity) {
             $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
         }
+        if ('refunds' === $entity) {
+            $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
+        }
         if (null !== $since && $this->hasUpdatedAtField($class)) {
             $qb->andWhere('e.updatedAt >= :since')->setParameter('since', new \DateTimeImmutable($since));
         }
@@ -136,6 +145,9 @@ final class EntityPaginator
 
         if ('coupons' === $entity) {
             $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
+        }
+        if ('refunds' === $entity) {
+            $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
         }
 
         $result = [];

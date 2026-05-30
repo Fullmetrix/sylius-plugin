@@ -62,6 +62,46 @@ final class HttpClient
         ];
     }
 
+    /**
+     * @param array<string, string> $headers
+     *
+     * @return array{status: int, body: string, error: ?string}
+     */
+    public function get(string $url, array $headers): array
+    {
+        $ch = curl_init($url);
+        if (false === $ch) {
+            return ['status' => 0, 'body' => '', 'error' => 'curl_init_failed'];
+        }
+
+        $headerLines = [];
+        foreach ($headers as $name => $value) {
+            $headerLines[] = $name . ': ' . $value;
+        }
+
+        curl_setopt_array($ch, [
+            \CURLOPT_HTTPGET => true,
+            \CURLOPT_HTTPHEADER => $headerLines,
+            \CURLOPT_RETURNTRANSFER => true,
+            \CURLOPT_FOLLOWLOCATION => false,
+            \CURLOPT_SSL_VERIFYPEER => true,
+            \CURLOPT_NOSIGNAL => 1,
+            \CURLOPT_CONNECTTIMEOUT_MS => $this->connectTimeoutMs,
+            \CURLOPT_TIMEOUT_MS => max($this->totalTimeoutMs, 2000),
+        ]);
+
+        $response = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, \CURLINFO_RESPONSE_CODE);
+        $error = curl_errno($ch) ? curl_error($ch) : null;
+        curl_close($ch);
+
+        return [
+            'status' => $status,
+            'body' => \is_string($response) ? $response : '',
+            'error' => $error,
+        ];
+    }
+
     public static function finishRequestEarly(): void
     {
         if (\function_exists('fastcgi_finish_request')) {

@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "minimumRequired": "1.13.0",
-  "changelog": "Initial release of the Fullmetrix Sylius plugin. Supports Sylius 1.13 LTS and 2.0. Syncs orders, customers, products, categories, promotions and refunds via NDJSON streaming. Sends realtime entity webhooks and visitor tracking events. Includes admin dashboard with connection management, sync activity and logs."
+  "changelog": "Adds the checkout marketing consent checkbox, rendered on the complete step and forwarded to Fullmetrix with the configured channels. Refund export and counts now filter orders by refunded payment state. Plugin configuration (consent, forms, WhatsApp) is fetched and cached from Fullmetrix with a 30 minute TTL and stale fallback. Supports Sylius 1.13 LTS and 2.0. Syncs orders, customers, products, categories, promotions and refunds via NDJSON streaming, with realtime entity webhooks and visitor tracking."
 }

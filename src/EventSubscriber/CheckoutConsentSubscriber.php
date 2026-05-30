@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Fullmetrix\SyliusPlugin\EventSubscriber;
 
 use Fullmetrix\SyliusPlugin\Service\CheckoutConsentSender;
+use Fullmetrix\SyliusPlugin\Service\PluginConfigProvider;
 use Sylius\Component\Core\Model\OrderInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -18,6 +19,7 @@ final class CheckoutConsentSubscriber implements EventSubscriberInterface
     public function __construct(
         private readonly CheckoutConsentSender $sender,
         private readonly RequestStack $requestStack,
+        private readonly PluginConfigProvider $pluginConfig,
     ) {
     }
 
@@ -49,11 +51,21 @@ final class CheckoutConsentSubscriber implements EventSubscriberInterface
         }
 
         $consent = \in_array((string) $consentValue, ['1', 'yes', 'true', 'on'], true);
-        $channelsRaw = $request->request->all(self::POST_CHANNELS_KEY);
         $channels = [];
-        foreach ((array) $channelsRaw as $channel) {
-            if (\is_string($channel) && '' !== $channel) {
-                $channels[] = $channel;
+        $consentConfig = $this->pluginConfig->getCheckoutConsent();
+        if (null !== $consentConfig && isset($consentConfig['channels']) && \is_array($consentConfig['channels'])) {
+            foreach ($consentConfig['channels'] as $channel) {
+                if (\is_string($channel) && '' !== $channel) {
+                    $channels[] = $channel;
+                }
+            }
+        }
+        if (empty($channels)) {
+            $channelsRaw = $request->request->all(self::POST_CHANNELS_KEY);
+            foreach ((array) $channelsRaw as $channel) {
+                if (\is_string($channel) && '' !== $channel) {
+                    $channels[] = $channel;
+                }
             }
         }
         if (empty($channels)) {

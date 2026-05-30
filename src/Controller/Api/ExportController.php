@@ -91,7 +91,7 @@ final class ExportController
                 'products' => $this->paginator->countByEntity('products'),
                 'categories' => $this->paginator->countByEntity('categories'),
                 'coupons' => $this->paginator->countByEntity('coupons'),
-                'refunds' => 0,
+                'refunds' => $this->paginator->countByEntity('refunds'),
             ],
         ]);
     }
