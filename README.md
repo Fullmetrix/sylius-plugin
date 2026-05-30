@@ -1,5 +1,7 @@
 # Fullmetrix Sylius Plugin
 
+[![Latest Version](https://img.shields.io/packagist/v/fullmetrix/sylius-plugin.svg)](https://packagist.org/packages/fullmetrix/sylius-plugin)
+
 Connects a Sylius store to Fullmetrix. Streams orders, customers, products, categories and promotions, dispatches realtime entity webhooks and visitor tracking events, and supports remote coupon management.
 
 Compatible with Sylius 1.13 LTS and Sylius 2.0 (PHP 8.1+, Symfony 6.4 or 7.x).
