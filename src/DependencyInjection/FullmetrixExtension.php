@@ -7,10 +7,32 @@ namespace Fullmetrix\SyliusPlugin\DependencyInjection;
 use Symfony\Component\Config\FileLocator;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\Extension;
+use Symfony\Component\DependencyInjection\Extension\PrependExtensionInterface;
 use Symfony\Component\DependencyInjection\Loader\YamlFileLoader;
 
-final class FullmetrixExtension extends Extension
+final class FullmetrixExtension extends Extension implements PrependExtensionInterface
 {
+    public function prepend(ContainerBuilder $container): void
+    {
+        if (!$container->hasExtension('doctrine')) {
+            return;
+        }
+
+        $container->prependExtensionConfig('doctrine', [
+            'orm' => [
+                'mappings' => [
+                    'FullmetrixPlugin' => [
+                        'is_bundle' => false,
+                        'type' => 'attribute',
+                        'dir' => \dirname(__DIR__) . '/Entity',
+                        'prefix' => 'Fullmetrix\\SyliusPlugin\\Entity',
+                        'alias' => 'FullmetrixPlugin',
+                    ],
+                ],
+            ],
+        ]);
+    }
+
     public function load(array $configs, ContainerBuilder $container): void
     {
         $configuration = new Configuration();
