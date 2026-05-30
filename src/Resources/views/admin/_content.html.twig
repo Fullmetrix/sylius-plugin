@@ -10,29 +10,29 @@
 <div style="max-width:760px;margin:24px auto;padding:0 16px;">
     <h1 style="font-size:22px;font-weight:600;margin:0 0 16px;color:#111827;">Fullmetrix</h1>
 
-    {% if registered %}
-        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
+    <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
+        {% if registered %}
             <div style="display:inline-flex;align-items:center;gap:8px;background:#ecfdf5;color:#047857;padding:6px 12px;border-radius:999px;font-size:13px;font-weight:500;margin-bottom:18px;">Connected</div>
-
-            <label style="display:block;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;margin-bottom:6px;">Connection code</label>
-            <input type="text" value="{{ connection_code }}" readonly disabled style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f3f4f6;color:#9ca3af;font-family:monospace;font-size:14px;cursor:not-allowed;margin-bottom:14px;" />
-
-            <p style="margin:0 0 18px;font-size:13px;color:#6b7280;">Webhooks {{ webhooks_enabled ? 'enabled' : 'disabled' }}{% if last_sync %} &middot; Last sync {{ last_sync }}{% endif %}{% if export_count > 0 %} &middot; {{ export_count }} exports served{% endif %}</p>
-
-            <form action="{{ path('fullmetrix_admin_disconnect') }}" method="post" style="margin:0;">
-                <button type="submit" style="background:#fff;border:1px solid #e5e7eb;color:#dc2626;padding:8px 16px;border-radius:8px;cursor:pointer;font-size:14px;">Disconnect</button>
-            </form>
-        </div>
-    {% else %}
-        <div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:24px;">
-            <p style="margin:0 0 16px;color:#374151;font-size:14px;">Enter the connection code from your Fullmetrix dashboard to connect this store.</p>
+        {% else %}
+            <p style="margin:0 0 18px;color:#374151;font-size:14px;">Enter the connection code from your Fullmetrix dashboard to connect this store.</p>
             {% if error %}
                 <div style="background:#fef2f2;color:#b91c1c;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;">Connection failed: {{ error }}</div>
             {% endif %}
-            <form action="{{ path('fullmetrix_admin_connection') }}" method="post" style="display:flex;gap:8px;">
-                <input type="text" name="connection_code" value="{{ submitted_code }}" placeholder="FMTX-XXXX-XXXX-XXXX" required style="flex:1;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;font-family:monospace;" />
-                <button type="submit" style="background:#111827;color:#fff;border:0;padding:10px 20px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">Connect</button>
+        {% endif %}
+
+        <label style="display:block;font-size:12px;font-weight:500;text-transform:uppercase;letter-spacing:.04em;color:#6b7280;margin-bottom:6px;">Connection code</label>
+
+        {% if registered %}
+            <input type="text" value="{{ connection_code }}" readonly disabled style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #e5e7eb;border-radius:8px;background:#f3f4f6;color:#9ca3af;font-family:monospace;font-size:14px;cursor:not-allowed;margin-bottom:12px;" />
+            <p style="margin:0 0 18px;font-size:13px;color:#6b7280;">Webhooks {{ webhooks_enabled ? 'enabled' : 'disabled' }}{% if last_sync %} &middot; Last sync {{ last_sync }}{% endif %}{% if export_count > 0 %} &middot; {{ export_count }} exports served{% endif %}</p>
+            <form action="{{ path('fullmetrix_admin_disconnect') }}" method="post" style="margin:0;">
+                <button type="submit" style="width:100%;box-sizing:border-box;background:#fff;border:1px solid #e5e7eb;color:#dc2626;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">Disconnect</button>
             </form>
-        </div>
-    {% endif %}
+        {% else %}
+            <form action="{{ path('fullmetrix_admin_connection') }}" method="post" style="margin:0;">
+                <input type="text" name="connection_code" value="{{ submitted_code }}" placeholder="FMTX-XXXX-XXXX-XXXX" required style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;font-size:14px;font-family:monospace;margin-bottom:12px;" />
+                <button type="submit" style="width:100%;box-sizing:border-box;background:#111827;color:#fff;border:0;padding:10px 16px;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500;">Connect</button>
+            </form>
+        {% endif %}
+    </div>
 </div>
