@@ -11,7 +11,7 @@ services:
             string $trackerOrigin: '%fullmetrix.tracker_origin%'
             int $connectTimeoutMs: '%fullmetrix.connect_timeout_ms%'
             int $totalTimeoutMs: '%fullmetrix.total_timeout_ms%'
-            string $pluginVersion: '1.1.0'
+            string $pluginVersion: '1.0.0'
 
     Fullmetrix\SyliusPlugin\Service\:
         resource: '../../Service/*'
