@@ -47,7 +47,11 @@ final class ConnectionController
 
         $tab = (string) $request->query->get('tab', 'connection');
 
-        return new Response($this->twig->render('@FullmetrixPlugin/admin/dashboard.html.twig', [
+        $template = $this->twig->getLoader()->exists('@SyliusAdmin/shared/layout/base.html.twig')
+            ? '@FullmetrixPlugin/admin/dashboard.v2.html.twig'
+            : '@FullmetrixPlugin/admin/dashboard.html.twig';
+
+        return new Response($this->twig->render($template, [
             'tab' => $tab,
             'registered' => $this->config->isRegistered(),
             'connection_code' => $this->config->getConnectionCode(),

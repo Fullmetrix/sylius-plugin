@@ -23,7 +23,8 @@ final class AdminMenuSubscriber implements EventSubscriberInterface
 
         try {
             $menu = $event->getMenu();
-            $child = $menu->addChild('fullmetrix', [
+            $parent = $menu->getChild('marketing') ?? $menu;
+            $child = $parent->addChild('fullmetrix', [
                 'route' => 'fullmetrix_admin_connection',
             ]);
             $child->setLabel('Fullmetrix');
