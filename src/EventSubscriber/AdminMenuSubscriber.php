@@ -27,7 +27,7 @@ final class AdminMenuSubscriber implements EventSubscriberInterface
                 'route' => 'fullmetrix_admin_connection',
             ]);
             $child->setLabel('Fullmetrix');
-            $child->setLabelAttribute('icon', 'tachometer alternate');
+            $child->setLabelAttribute('icon', 'tabler:chart-bar');
         } catch (\Throwable) {
         }
     }
