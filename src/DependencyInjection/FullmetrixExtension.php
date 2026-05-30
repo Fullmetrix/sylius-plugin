@@ -14,23 +14,38 @@ final class FullmetrixExtension extends Extension implements PrependExtensionInt
 {
     public function prepend(ContainerBuilder $container): void
     {
-        if (!$container->hasExtension('doctrine')) {
-            return;
-        }
-
-        $container->prependExtensionConfig('doctrine', [
-            'orm' => [
-                'mappings' => [
-                    'FullmetrixPlugin' => [
-                        'is_bundle' => false,
-                        'type' => 'attribute',
-                        'dir' => \dirname(__DIR__) . '/Entity',
-                        'prefix' => 'Fullmetrix\\SyliusPlugin\\Entity',
-                        'alias' => 'FullmetrixPlugin',
+        if ($container->hasExtension('doctrine')) {
+            $container->prependExtensionConfig('doctrine', [
+                'orm' => [
+                    'mappings' => [
+                        'FullmetrixPlugin' => [
+                            'is_bundle' => false,
+                            'type' => 'attribute',
+                            'dir' => \dirname(__DIR__) . '/Entity',
+                            'prefix' => 'Fullmetrix\\SyliusPlugin\\Entity',
+                            'alias' => 'FullmetrixPlugin',
+                        ],
                     ],
                 ],
-            ],
-        ]);
+            ]);
+        }
+
+        if ($container->hasExtension('sylius_twig_hooks')) {
+            $container->prependExtensionConfig('sylius_twig_hooks', [
+                'hooks' => [
+                    'sylius_admin.fullmetrix.index.content' => [
+                        'flashes' => ['enabled' => false],
+                        'header' => ['enabled' => false],
+                        'grid' => ['enabled' => false],
+                        'footer' => ['enabled' => false],
+                        'fullmetrix' => [
+                            'template' => '@FullmetrixPlugin/admin/_content.html.twig',
+                            'priority' => 0,
+                        ],
+                    ],
+                ],
+            ]);
+        }
     }
 
     public function load(array $configs, ContainerBuilder $container): void
