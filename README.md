@@ -53,7 +53,7 @@ fullmetrix:
 
 ## Usage
 
-1. Go to `Admin -> Fullmetrix`.
+1. In the admin panel, go to `Marketing -> Fullmetrix`.
 2. Enter the connection code provided by Fullmetrix (format `FMTX-XXXX-XXXX-XXXX`).
 3. Click Connect. The plugin registers with Fullmetrix and receives an HMAC secret.
 4. Fullmetrix performs an initial historical sync and then receives realtime webhooks.
