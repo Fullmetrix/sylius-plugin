@@ -56,6 +56,11 @@ final class TrackerInjectionSubscriber implements EventSubscriberInterface
             return;
         }
 
+        $pluginConfig = $this->config->get(ConfigStore::KEY_PLUGIN_CONFIG);
+        if (\is_array($pluginConfig) && isset($pluginConfig['trackerEnabled']) && false === $pluginConfig['trackerEnabled']) {
+            return;
+        }
+
         $version = $this->pluginVersion . '.' . floor(time() / 300);
         $tag = sprintf(
             '<script async src="%s/t.js?ver=%s" data-key="%s"></script>',
