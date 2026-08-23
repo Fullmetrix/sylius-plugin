@@ -30,7 +30,13 @@ final class ConnectionManager
             return ['success' => false, 'error' => 'invalid_code_format'];
         }
 
-        $response = $this->api->register($code, $siteUrl);
+        $storeCanonicalId = $this->config->get(ConfigStore::KEY_STORE_CANONICAL_ID);
+        if (!\is_string($storeCanonicalId) || '' === $storeCanonicalId) {
+            $storeCanonicalId = bin2hex(random_bytes(16));
+            $this->config->set(ConfigStore::KEY_STORE_CANONICAL_ID, $storeCanonicalId);
+        }
+
+        $response = $this->api->register($code, $siteUrl, $storeCanonicalId);
         if (!$response['success']) {
             $this->logger->log(Logger::TYPE_SYNC_ERROR, 'Registration failed', [
                 'status' => $response['status'],

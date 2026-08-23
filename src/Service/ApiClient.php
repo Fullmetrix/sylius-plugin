@@ -18,11 +18,12 @@ final class ApiClient
     /**
      * @return array{success: bool, secret?: string, error?: string, status: int}
      */
-    public function register(string $connectionCode, string $siteUrl): array
+    public function register(string $connectionCode, string $siteUrl, string $storeCanonicalId): array
     {
         $payload = [
             'connectionCode' => $connectionCode,
             'siteUrl' => $siteUrl,
+            'storeCanonicalId' => $storeCanonicalId,
             'pluginVersion' => $this->pluginVersion,
             'platform' => 'sylius',
             'storeSettings' => $this->storeSettings->get(),

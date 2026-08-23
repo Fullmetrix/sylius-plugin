@@ -18,6 +18,7 @@ final class ConfigStore
     public const KEY_EXPORT_COUNT = 'export_count';
     public const KEY_SYNC_IN_PROGRESS = 'sync_in_progress';
     public const KEY_PLUGIN_CONFIG = 'plugin_config';
+    public const KEY_STORE_CANONICAL_ID = 'store_canonical_id';
 
     private array $cache = [];
 
