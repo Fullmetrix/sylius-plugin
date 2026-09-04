@@ -30,6 +30,13 @@ final class EntitySerializer
         'emailVerificationToken', 'passwordRequestedAt', 'token',
     ];
 
+    /** Motifs bilingues, pour les champs ajoutes par un plugin ou un projet. */
+    private const SENSITIVE_FIELD_PATTERNS = [
+        'password', 'passwd', 'secret', 'token', 'apikey', 'apiKey',
+        'privatekey', 'salt', 'nonce', 'credential',
+        'jeton', 'motdepasse', 'clesecrete', 'cleprivee', 'empreinte', 'signature',
+    ];
+
     private const ORDER_MAPPED_FIELDS = [
         'id', 'number', 'state', 'checkoutState', 'paymentState', 'shippingState',
         'currencyCode', 'total', 'itemsTotal', 'createdAt', 'updatedAt', 'notes',
@@ -465,7 +472,9 @@ final class EntitySerializer
         }
 
         foreach ($metadata->getFieldNames() as $field) {
-            if (\in_array($field, $mappedFields, true) || \in_array($field, self::SENSITIVE_FIELDS, true)) {
+            if (\in_array($field, $mappedFields, true)
+                || \in_array($field, self::SENSITIVE_FIELDS, true)
+                || self::isSensitiveField($field)) {
                 continue;
             }
             try {
@@ -504,6 +513,18 @@ final class EntitySerializer
         }
 
         return $pairs;
+    }
+
+    private static function isSensitiveField(string $field): bool
+    {
+        $lower = strtolower(str_replace('_', '', $field));
+        foreach (self::SENSITIVE_FIELD_PATTERNS as $pattern) {
+            if (str_contains($lower, strtolower($pattern))) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function stringifyFieldValue(mixed $value): ?string
