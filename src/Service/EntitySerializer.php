@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Fullmetrix\SyliusPlugin\Service;
 
+use Doctrine\ORM\EntityManagerInterface;
 use Sylius\Component\Core\Model\AddressInterface;
 use Sylius\Component\Core\Model\AdjustmentInterface;
 use Sylius\Component\Core\Model\CustomerInterface;
@@ -18,6 +19,41 @@ use Sylius\Component\Promotion\Model\PromotionInterface;
 
 final class EntitySerializer
 {
+    private const META_VALUE_MAX_LENGTH = 20000;
+    private const META_TOTAL_MAX_LENGTH = 65536;
+    private const META_SHORT_VALUE_LENGTH = 512;
+    private const META_KEY_MAX_LENGTH = 80;
+
+    private const SENSITIVE_FIELDS = [
+        'password', 'plainPassword', 'salt', 'passwordResetToken',
+        'emailVerificationToken', 'passwordRequestedAt', 'token',
+    ];
+
+    private const ORDER_MAPPED_FIELDS = [
+        'id', 'number', 'state', 'checkoutState', 'paymentState', 'shippingState',
+        'currencyCode', 'total', 'itemsTotal', 'createdAt', 'updatedAt', 'notes',
+    ];
+
+    private const CUSTOMER_MAPPED_FIELDS = [
+        'id', 'email', 'emailCanonical', 'firstName', 'lastName',
+        'phoneNumber', 'gender', 'birthday', 'createdAt', 'updatedAt',
+    ];
+
+    private const PRODUCT_MAPPED_FIELDS = ['id', 'code', 'createdAt', 'updatedAt'];
+
+    private const LINE_ITEM_MAPPED_FIELDS = [
+        'id', 'quantity', 'unitPrice', 'total', 'subtotal', 'productName', 'variantName',
+    ];
+
+    private const ADDRESS_MAPPED_FIELDS = [
+        'id', 'firstName', 'lastName', 'company', 'street', 'city',
+        'postcode', 'countryCode', 'provinceCode', 'provinceName', 'phoneNumber',
+    ];
+
+    public function __construct(private readonly EntityManagerInterface $em)
+    {
+    }
+
     public function serializeOrder(OrderInterface $order): array
     {
         return [
@@ -51,6 +87,11 @@ final class EntitySerializer
             'fee_lines' => [],
             'tax_lines' => $this->taxLines($order),
             'payments' => $this->payments($order),
+            'meta_data' => array_merge(
+                $this->extraFieldsMeta($order, self::ORDER_MAPPED_FIELDS),
+                $this->extraFieldsMeta($order->getBillingAddress(), self::ADDRESS_MAPPED_FIELDS, 'billing_'),
+                $this->extraFieldsMeta($order->getShippingAddress(), self::ADDRESS_MAPPED_FIELDS, 'shipping_')
+            ),
         ];
     }
 
@@ -68,6 +109,10 @@ final class EntitySerializer
             'date_updated' => $this->iso($customer->getUpdatedAt()),
             'billing_address' => $this->address($customer->getDefaultAddress()),
             'shipping_address' => $this->address($customer->getDefaultAddress()),
+            'meta_data' => array_merge(
+                $this->extraFieldsMeta($customer, self::CUSTOMER_MAPPED_FIELDS),
+                $this->extraFieldsMeta($customer->getDefaultAddress(), self::ADDRESS_MAPPED_FIELDS, 'billing_')
+            ),
         ];
     }
 
@@ -107,6 +152,7 @@ final class EntitySerializer
             'variations' => $variants,
             'date_created' => $this->iso($product->getCreatedAt()),
             'date_updated' => $this->iso($product->getUpdatedAt()),
+            'meta_data' => $this->extraFieldsMeta($product, self::PRODUCT_MAPPED_FIELDS),
         ];
     }
 
@@ -122,6 +168,7 @@ final class EntitySerializer
             'position' => $taxon->getPosition(),
             'date_created' => $this->iso($taxon->getCreatedAt()),
             'date_updated' => $this->iso($taxon->getUpdatedAt()),
+            'meta_data' => $this->extraFieldsMeta($taxon, ['id', 'code', 'position', 'createdAt', 'updatedAt']),
         ];
     }
 
@@ -220,6 +267,10 @@ final class EntitySerializer
                 'subtotal' => $this->money($item->getSubtotal()),
                 'tax' => $this->money($item->getTaxTotal()),
                 'discount' => $this->money($this->itemDiscountTotal($item)),
+                'meta_data' => array_merge(
+                    $this->extraFieldsMeta($item, self::LINE_ITEM_MAPPED_FIELDS),
+                    $this->extraFieldsMeta($variant, ['id', 'code'], 'variant_')
+                ),
             ];
         }
 
@@ -359,6 +410,92 @@ final class EntitySerializer
         $payment = $order->getLastPayment();
 
         return $payment?->getMethod()?->getName();
+    }
+
+    /**
+     * Every Doctrine field that is not already exposed as a top-level key,
+     * read from the entity metadata. Fields added by a project extending a
+     * Sylius entity are picked up without touching this plugin.
+     *
+     * @param list<string> $mappedFields
+     *
+     * @return list<array{key: string, value: string}>
+     */
+    private function extraFieldsMeta(?object $entity, array $mappedFields, string $prefix = ''): array
+    {
+        if (null === $entity) {
+            return [];
+        }
+
+        try {
+            $metadata = $this->em->getClassMetadata($entity::class);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        $short = [];
+        $long = [];
+        foreach ($metadata->getFieldNames() as $field) {
+            if (\in_array($field, $mappedFields, true) || \in_array($field, self::SENSITIVE_FIELDS, true)) {
+                continue;
+            }
+            try {
+                $value = $metadata->getFieldValue($entity, $field);
+            } catch (\Throwable) {
+                continue;
+            }
+            $text = $this->stringifyFieldValue($value);
+            if (null === $text || '' === $text || 1 !== preg_match('//u', $text)) {
+                continue;
+            }
+            $key = mb_strcut($prefix . $field, 0, self::META_KEY_MAX_LENGTH, 'UTF-8');
+            if (\strlen($text) <= self::META_SHORT_VALUE_LENGTH) {
+                $short[] = ['key' => $key, 'value' => $text];
+                continue;
+            }
+            $long[] = ['key' => $key, 'value' => mb_strcut($text, 0, self::META_VALUE_MAX_LENGTH, 'UTF-8')];
+        }
+
+        $pairs = $short;
+        $budget = self::META_TOTAL_MAX_LENGTH;
+        foreach ($short as $pair) {
+            $budget -= \strlen($pair['value']);
+        }
+        foreach ($long as $pair) {
+            if ($budget <= 0) {
+                break;
+            }
+            $pairs[] = [
+                'key' => $pair['key'],
+                'value' => \strlen($pair['value']) > $budget
+                    ? mb_strcut($pair['value'], 0, $budget, 'UTF-8')
+                    : $pair['value'],
+            ];
+            $budget -= \strlen($pair['value']);
+        }
+
+        return $pairs;
+    }
+
+    private function stringifyFieldValue(mixed $value): ?string
+    {
+        if (null === $value) {
+            return null;
+        }
+        if (\is_bool($value)) {
+            return $value ? '1' : '0';
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return $this->iso($value);
+        }
+        if (\is_scalar($value)) {
+            return (string) $value;
+        }
+        if ($value instanceof \Stringable) {
+            return (string) $value;
+        }
+
+        return null;
     }
 
     private function money(?int $cents): string
