@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Fullmetrix\SyliusPlugin\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\ClassMetadata;
 use Sylius\Component\Core\Model\AddressInterface;
 use Sylius\Component\Core\Model\AdjustmentInterface;
 use Sylius\Component\Core\Model\CustomerInterface;
@@ -435,6 +436,34 @@ final class EntitySerializer
 
         $short = [];
         $long = [];
+
+        // Identifiants des associations to-one: lus sur le proxy, ce qui
+        // n'ouvre aucune requete, et couvre les entites ajoutees par un plugin.
+        foreach ($metadata->getAssociationMappings() as $name => $mapping) {
+            if (empty($mapping['isOwningSide']) || !($mapping['type'] & ClassMetadata::TO_ONE)) {
+                continue;
+            }
+            if (\in_array($name, $mappedFields, true)) {
+                continue;
+            }
+            try {
+                $related = $metadata->getFieldValue($entity, $name);
+            } catch (\Throwable) {
+                continue;
+            }
+            if (!\is_object($related) || !method_exists($related, 'getId')) {
+                continue;
+            }
+            $relatedId = $related->getId();
+            if (null === $relatedId || \is_object($relatedId)) {
+                continue;
+            }
+            $short[] = [
+                'key' => mb_strcut($prefix . $name . '_id', 0, self::META_KEY_MAX_LENGTH, 'UTF-8'),
+                'value' => (string) $relatedId,
+            ];
+        }
+
         foreach ($metadata->getFieldNames() as $field) {
             if (\in_array($field, $mappedFields, true) || \in_array($field, self::SENSITIVE_FIELDS, true)) {
                 continue;
