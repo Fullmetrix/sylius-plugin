@@ -63,7 +63,7 @@ final class FullmetrixExtension extends Extension implements PrependExtensionInt
 
         $loader = new YamlFileLoader(
             $container,
-            new FileLocator(\dirname(__DIR__) . '/Resources/config')
+            new FileLocator(\dirname(__DIR__) . '/Resources/config'),
         );
         $loader->load('services.yaml');
     }

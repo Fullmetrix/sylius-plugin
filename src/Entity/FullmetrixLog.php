@@ -15,6 +15,8 @@ class FullmetrixLog
     #[ORM\Id]
     #[ORM\Column(type: 'integer')]
     #[ORM\GeneratedValue]
+    /** Doctrine assigns the identifier by reflection, PHPStan cannot see it. */
+    /** @phpstan-ignore property.unusedType */
     private ?int $id = null;
 
     #[ORM\Column(type: 'string', length: 32)]

@@ -10,14 +10,23 @@ use Fullmetrix\SyliusPlugin\Entity\FullmetrixConfig;
 final class ConfigStore
 {
     public const KEY_CONNECTION_CODE = 'connection_code';
+
     public const KEY_CONNECTION_SECRET = 'connection_secret';
+
     public const KEY_REGISTERED = 'registered';
+
     public const KEY_WEBHOOKS_ENABLED = 'webhooks_enabled';
+
     public const KEY_API_BASE = 'api_base';
+
     public const KEY_LAST_SYNC = 'last_sync';
+
     public const KEY_EXPORT_COUNT = 'export_count';
+
     public const KEY_SYNC_IN_PROGRESS = 'sync_in_progress';
+
     public const KEY_PLUGIN_CONFIG = 'plugin_config';
+
     public const KEY_STORE_CANONICAL_ID = 'store_canonical_id';
 
     private const SYNC_STALE_AFTER_SECONDS = 600;
@@ -49,7 +58,7 @@ final class ConfigStore
         }
 
         $decoded = json_decode($raw, true);
-        $value = (JSON_ERROR_NONE === json_last_error()) ? $decoded : $raw;
+        $value = (\JSON_ERROR_NONE === json_last_error()) ? $decoded : $raw;
         $this->cache[$key] = $value;
 
         return $value;
@@ -101,15 +110,15 @@ final class ConfigStore
 
     public function isRegistered(): bool
     {
-        return true === $this->get(self::KEY_REGISTERED, false)
-            && !empty($this->get(self::KEY_CONNECTION_CODE))
-            && !empty($this->get(self::KEY_CONNECTION_SECRET));
+        return true === $this->get(self::KEY_REGISTERED, false) &&
+            !empty($this->get(self::KEY_CONNECTION_CODE)) &&
+            !empty($this->get(self::KEY_CONNECTION_SECRET));
     }
 
     public function isActive(): bool
     {
-        return $this->isRegistered()
-            && true === $this->get(self::KEY_WEBHOOKS_ENABLED, true);
+        return $this->isRegistered() &&
+            true === $this->get(self::KEY_WEBHOOKS_ENABLED, true);
     }
 
     public function getConnectionCode(): ?string

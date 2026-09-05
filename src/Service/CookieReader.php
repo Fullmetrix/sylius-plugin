@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 final class CookieReader
 {
     private const COOKIE_PATTERN = '/^[a-zA-Z0-9_\-]{1,64}$/';
+
     private const MAX_CONTACT_LEN = 8192;
 
     public function __construct(private readonly RequestStack $requestStack)
@@ -32,7 +33,7 @@ final class CookieReader
     public function contact(): ?array
     {
         $raw = $this->request()?->cookies->get('fm_cid');
-        if (null === $raw || !\is_string($raw)) {
+        if (null === $raw) {
             return null;
         }
         if (\strlen($raw) > self::MAX_CONTACT_LEN) {

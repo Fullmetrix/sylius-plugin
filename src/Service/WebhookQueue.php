@@ -14,10 +14,15 @@ use Sylius\Component\Promotion\Model\PromotionInterface;
 final class WebhookQueue
 {
     public const TYPE_ORDER = 'order';
+
     public const TYPE_CUSTOMER = 'customer';
+
     public const TYPE_PRODUCT = 'product';
+
     public const TYPE_CATEGORY = 'category';
+
     public const TYPE_COUPON = 'coupon';
+
     public const TYPE_REFUND = 'refund';
 
     /** @var array<string, array{type: string, id: int|string}> */

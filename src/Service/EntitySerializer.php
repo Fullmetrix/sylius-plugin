@@ -14,15 +14,17 @@ use Sylius\Component\Core\Model\OrderItemInterface;
 use Sylius\Component\Core\Model\PaymentInterface;
 use Sylius\Component\Core\Model\ProductInterface;
 use Sylius\Component\Core\Model\ProductVariantInterface;
-use Sylius\Component\Core\Model\ShipmentInterface;
 use Sylius\Component\Core\Model\TaxonInterface;
 use Sylius\Component\Promotion\Model\PromotionInterface;
 
 final class EntitySerializer
 {
     private const META_VALUE_MAX_LENGTH = 20000;
+
     private const META_TOTAL_MAX_LENGTH = 65536;
+
     private const META_SHORT_VALUE_LENGTH = 512;
+
     private const META_KEY_MAX_LENGTH = 80;
 
     private const SENSITIVE_FIELDS = [
@@ -83,7 +85,7 @@ final class EntitySerializer
             'date_paid' => null,
             'date_completed' => 'fulfilled' === $order->getShippingState() ? $this->iso($order->getUpdatedAt()) : null,
             'customer_id' => $order->getCustomer()?->getId(),
-            'customer_email' => $order->getCustomer()?->getEmail() ?: $order->getEmail(),
+            'customer_email' => $this->orderEmail($order),
             'customer_note' => $order->getNotes(),
             'payment_method' => $this->paymentMethod($order),
             'payment_method_title' => $this->paymentMethodTitle($order),
@@ -98,7 +100,7 @@ final class EntitySerializer
             'meta_data' => array_merge(
                 $this->extraFieldsMeta($order, self::ORDER_MAPPED_FIELDS),
                 $this->extraFieldsMeta($order->getBillingAddress(), self::ADDRESS_MAPPED_FIELDS, 'billing_'),
-                $this->extraFieldsMeta($order->getShippingAddress(), self::ADDRESS_MAPPED_FIELDS, 'shipping_')
+                $this->extraFieldsMeta($order->getShippingAddress(), self::ADDRESS_MAPPED_FIELDS, 'shipping_'),
             ),
         ];
     }
@@ -119,7 +121,7 @@ final class EntitySerializer
             'shipping_address' => $this->address($customer->getDefaultAddress()),
             'meta_data' => array_merge(
                 $this->extraFieldsMeta($customer, self::CUSTOMER_MAPPED_FIELDS),
-                $this->extraFieldsMeta($customer->getDefaultAddress(), self::ADDRESS_MAPPED_FIELDS, 'billing_')
+                $this->extraFieldsMeta($customer->getDefaultAddress(), self::ADDRESS_MAPPED_FIELDS, 'billing_'),
             ),
         ];
     }
@@ -135,7 +137,7 @@ final class EntitySerializer
 
         $categories = [];
         foreach ($product->getTaxons() as $taxon) {
-            if ($taxon instanceof TaxonInterface && null !== $taxon->getId()) {
+            if (null !== $taxon->getId()) {
                 $categories[] = $taxon->getId();
             }
         }
@@ -143,6 +145,7 @@ final class EntitySerializer
         $mainImage = null;
         foreach ($product->getImages() as $image) {
             $mainImage = $image->getPath();
+
             break;
         }
 
@@ -184,13 +187,17 @@ final class EntitySerializer
     {
         $codes = [];
         foreach ($promotion->getCoupons() as $coupon) {
-            $codes[] = [
+            $entry = [
                 'code' => $coupon->getCode(),
                 'usage_limit' => $coupon->getUsageLimit(),
-                'per_customer_usage_limit' => $coupon->getPerCustomerUsageLimit(),
                 'used' => $coupon->getUsed(),
                 'expires_at' => $this->iso($coupon->getExpiresAt()),
             ];
+            // Sylius 1.13 exposes a per customer limit, Sylius 2 dropped it.
+            if (method_exists($coupon, 'getPerCustomerUsageLimit')) {
+                $entry['per_customer_usage_limit'] = $coupon->getPerCustomerUsageLimit();
+            }
+            $codes[] = $entry;
         }
 
         $actions = [];
@@ -257,9 +264,6 @@ final class EntitySerializer
     {
         $items = [];
         foreach ($order->getItems() as $item) {
-            if (!$item instanceof OrderItemInterface) {
-                continue;
-            }
             $variant = $item->getVariant();
             $product = $variant?->getProduct();
             $items[] = [
@@ -277,7 +281,7 @@ final class EntitySerializer
                 'discount' => $this->money($this->itemDiscountTotal($item)),
                 'meta_data' => array_merge(
                     $this->extraFieldsMeta($item, self::LINE_ITEM_MAPPED_FIELDS),
-                    $this->extraFieldsMeta($variant, ['id', 'code'], 'variant_')
+                    $this->extraFieldsMeta($variant, ['id', 'code'], 'variant_'),
                 ),
             ];
         }
@@ -289,9 +293,6 @@ final class EntitySerializer
     {
         $lines = [];
         foreach ($order->getShipments() as $shipment) {
-            if (!$shipment instanceof ShipmentInterface) {
-                continue;
-            }
             $lines[] = [
                 'id' => $shipment->getId(),
                 'method_title' => $shipment->getMethod()?->getName(),
@@ -353,6 +354,7 @@ final class EntitySerializer
         $channelPricing = null;
         foreach ($variant->getChannelPricings() as $pricing) {
             $channelPricing = $pricing;
+
             break;
         }
 
@@ -453,6 +455,7 @@ final class EntitySerializer
             if (\in_array($name, $mappedFields, true)) {
                 continue;
             }
+
             try {
                 $related = $metadata->getFieldValue($entity, $name);
             } catch (\Throwable) {
@@ -472,11 +475,12 @@ final class EntitySerializer
         }
 
         foreach ($metadata->getFieldNames() as $field) {
-            if (\in_array($field, $mappedFields, true)
-                || \in_array($field, self::SENSITIVE_FIELDS, true)
-                || self::isSensitiveField($field)) {
+            if (\in_array($field, $mappedFields, true) ||
+                \in_array($field, self::SENSITIVE_FIELDS, true) ||
+                self::isSensitiveField($field)) {
                 continue;
             }
+
             try {
                 $value = $metadata->getFieldValue($entity, $field);
             } catch (\Throwable) {
@@ -489,6 +493,7 @@ final class EntitySerializer
             $key = mb_strcut($prefix . $field, 0, self::META_KEY_MAX_LENGTH, 'UTF-8');
             if (\strlen($text) <= self::META_SHORT_VALUE_LENGTH) {
                 $short[] = ['key' => $key, 'value' => $text];
+
                 continue;
             }
             $long[] = ['key' => $key, 'value' => mb_strcut($text, 0, self::META_VALUE_MAX_LENGTH, 'UTF-8')];
@@ -553,6 +558,19 @@ final class EntitySerializer
         $value = (null === $cents) ? 0 : $cents;
 
         return number_format($value / 100, 2, '.', '');
+    }
+
+    /**
+     * Sylius 1.13 carries the address email on the order, Sylius 2 only on the customer.
+     */
+    private function orderEmail(OrderInterface $order): ?string
+    {
+        $email = $order->getCustomer()?->getEmail();
+        if (null !== $email && '' !== $email) {
+            return $email;
+        }
+
+        return method_exists($order, 'getEmail') ? $order->getEmail() : null;
     }
 
     private function iso(?\DateTimeInterface $date): ?string

@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Fullmetrix\SyliusPlugin\Service;
 
 use Sylius\Component\Core\Model\OrderInterface;
-use Sylius\Component\Core\Model\OrderItemInterface;
+use Sylius\Component\Core\Model\ProductInterface as CoreProductInterface;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final class CartSerializer
 {
     public function __construct(
         private readonly UrlGeneratorInterface $urls,
-        private readonly HmacSigner $signer,
         private readonly ConfigStore $config,
     ) {
     }
@@ -21,16 +20,14 @@ final class CartSerializer
     {
         $items = [];
         foreach ($cart->getItems() as $item) {
-            if (!$item instanceof OrderItemInterface) {
-                continue;
-            }
             $variant = $item->getVariant();
             $product = $variant?->getProduct();
 
             $imageUrl = null;
-            if (null !== $product) {
+            if ($product instanceof CoreProductInterface) {
                 foreach ($product->getImages() as $image) {
                     $imageUrl = $image->getPath();
+
                     break;
                 }
             }
@@ -78,9 +75,6 @@ final class CartSerializer
 
         $payload = ['items' => [], 'c' => []];
         foreach ($cart->getItems() as $item) {
-            if (!$item instanceof OrderItemInterface) {
-                continue;
-            }
             $variant = $item->getVariant();
             $product = $variant?->getProduct();
             if (null === $product?->getId()) {
@@ -88,7 +82,7 @@ final class CartSerializer
             }
             $payload['items'][] = [
                 'id' => $product->getId(),
-                'v' => $variant?->getId(),
+                'v' => $variant->getId(),
                 'q' => $item->getQuantity(),
             ];
         }

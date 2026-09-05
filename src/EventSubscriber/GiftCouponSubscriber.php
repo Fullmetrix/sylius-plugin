@@ -6,12 +6,18 @@ namespace Fullmetrix\SyliusPlugin\EventSubscriber;
 
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\OrderItemInterface;
+use Sylius\Component\Order\Modifier\OrderItemQuantityModifierInterface;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Contracts\EventDispatcher\Event;
 
 final class GiftCouponSubscriber implements EventSubscriberInterface
 {
     public const GIFT_FLAG_KEY = '_fullmetrix_gift';
+
+    public function __construct(
+        private readonly OrderItemQuantityModifierInterface $quantityModifier,
+    ) {
+    }
 
     public static function getSubscribedEvents(): array
     {
@@ -32,15 +38,12 @@ final class GiftCouponSubscriber implements EventSubscriberInterface
         }
 
         foreach ($order->getItems() as $item) {
-            if (!$item instanceof OrderItemInterface) {
-                continue;
-            }
             if (!$this->isGiftItem($item)) {
                 continue;
             }
             $item->setUnitPrice(0);
-            if ($item->getQuantity() !== 1) {
-                $item->setQuantity(1);
+            if (1 !== $item->getQuantity()) {
+                $this->quantityModifier->modify($item, 1);
             }
         }
     }
@@ -49,7 +52,7 @@ final class GiftCouponSubscriber implements EventSubscriberInterface
     {
         foreach ($item->getAdjustments() as $adjustment) {
             $details = $adjustment->getDetails();
-            if (\is_array($details) && isset($details[self::GIFT_FLAG_KEY]) && true === $details[self::GIFT_FLAG_KEY]) {
+            if (isset($details[self::GIFT_FLAG_KEY]) && true === $details[self::GIFT_FLAG_KEY]) {
                 return true;
             }
         }

@@ -8,7 +8,6 @@ final class ApiClient
 {
     public function __construct(
         private readonly HttpClient $http,
-        private readonly HmacSigner $signer,
         private readonly StoreSettingsProvider $storeSettings,
         private readonly string $apiBase,
         private readonly string $pluginVersion,

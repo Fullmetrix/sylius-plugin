@@ -14,6 +14,7 @@ use Symfony\Contracts\EventDispatcher\Event;
 final class CheckoutConsentSubscriber implements EventSubscriberInterface
 {
     public const POST_CONSENT_KEY = '_fullmetrix_consent';
+
     public const POST_CHANNELS_KEY = '_fullmetrix_consent_channels';
 
     public function __construct(
@@ -73,7 +74,10 @@ final class CheckoutConsentSubscriber implements EventSubscriberInterface
         }
 
         $customer = $order->getCustomer();
-        $email = $customer?->getEmail() ?: $order->getEmail();
+        $email = $customer?->getEmail();
+        if ((null === $email || '' === $email) && method_exists($order, 'getEmail')) {
+            $email = $order->getEmail();
+        }
         $phone = $customer?->getPhoneNumber() ?: $order->getBillingAddress()?->getPhoneNumber();
 
         $this->sender->send($email, $phone, $consent, $channels, $request->getUri());

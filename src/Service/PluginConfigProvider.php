@@ -30,8 +30,8 @@ final class PluginConfigProvider
         $cached = $this->config->get(ConfigStore::KEY_PLUGIN_CONFIG);
         $now = time();
 
-        if (\is_array($cached) && isset($cached['fetchedAt'], $cached['data'])
-            && ($now - (int) $cached['fetchedAt']) < self::TTL_SECONDS) {
+        if (\is_array($cached) && isset($cached['fetchedAt'], $cached['data']) &&
+            ($now - (int) $cached['fetchedAt']) < self::TTL_SECONDS) {
             $this->loaded = true;
             $this->data = \is_array($cached['data']) ? $cached['data'] : null;
 

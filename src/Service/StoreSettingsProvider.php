@@ -22,6 +22,7 @@ final class StoreSettingsProvider
     public function get(): array
     {
         $channel = null;
+
         try {
             $channel = $this->channelContext->getChannel();
         } catch (\Throwable) {
@@ -43,6 +44,7 @@ final class StoreSettingsProvider
         }
 
         $locale = 'en_US';
+
         try {
             $locale = $this->localeContext->getLocaleCode();
         } catch (\Throwable) {

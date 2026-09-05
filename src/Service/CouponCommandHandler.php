@@ -15,7 +15,9 @@ use Sylius\Component\Resource\Factory\FactoryInterface;
 final class CouponCommandHandler
 {
     public const ACTION_CREATE = 'coupon.create';
+
     public const ACTION_UPDATE = 'coupon.update';
+
     public const ACTION_DELETE = 'coupon.delete';
 
     public function __construct(
@@ -58,7 +60,7 @@ final class CouponCommandHandler
         $promotion->setExclusive((bool) ($payload['exclusive'] ?? false));
         $promotion->setPriority((int) ($payload['priority'] ?? 0));
 
-        if (isset($payload['usageLimit']) && null !== $payload['usageLimit']) {
+        if (isset($payload['usageLimit'])) {
             $promotion->setUsageLimit((int) $payload['usageLimit']);
         }
         if (!empty($payload['startsAt'])) {
@@ -74,10 +76,11 @@ final class CouponCommandHandler
         /** @var PromotionCouponInterface $coupon */
         $coupon = $this->couponFactory->createForPromotion($promotion);
         $coupon->setCode($code);
-        if (isset($payload['usageLimit']) && null !== $payload['usageLimit']) {
+        if (isset($payload['usageLimit'])) {
             $coupon->setUsageLimit((int) $payload['usageLimit']);
         }
-        if (isset($payload['usageLimitPerUser']) && null !== $payload['usageLimitPerUser']) {
+        // Sylius 1.13 exposes a per customer limit, Sylius 2 dropped it.
+        if (isset($payload['usageLimitPerUser']) && method_exists($coupon, 'setPerCustomerUsageLimit')) {
             $coupon->setPerCustomerUsageLimit((int) $payload['usageLimitPerUser']);
         }
         if (!empty($payload['expiresAt'])) {
@@ -108,7 +111,7 @@ final class CouponCommandHandler
             $promotion->setDescription((string) $payload['description']);
             $promotion->setName((string) $payload['description']);
         }
-        if (isset($payload['usageLimit'])) {
+        if (\array_key_exists('usageLimit', $payload)) {
             $promotion->setUsageLimit(null === $payload['usageLimit'] ? null : (int) $payload['usageLimit']);
         }
         if (isset($payload['expiresAt'])) {

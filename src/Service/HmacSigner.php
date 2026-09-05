@@ -7,8 +7,11 @@ namespace Fullmetrix\SyliusPlugin\Service;
 final class HmacSigner
 {
     public const HEADER_CONNECTION_CODE = 'X-Fullmetrix-Connection-Code';
+
     public const HEADER_SIGNATURE = 'X-Fullmetrix-Signature';
+
     public const HEADER_TIMESTAMP = 'X-Fullmetrix-Timestamp';
+
     public const HEADER_PLUGIN_VERSION = 'X-Fullmetrix-Plugin-Version';
 
     private const TIMESTAMP_TOLERANCE_MS = 300_000;

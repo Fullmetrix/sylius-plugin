@@ -7,8 +7,11 @@ namespace Fullmetrix\SyliusPlugin\Service;
 final class TrackingQueue
 {
     public const EVENT_IDENTIFY = 'identify';
+
     public const EVENT_CART_UPDATED = 'cart_updated';
+
     public const EVENT_ADDED_TO_CART = 'added_to_cart';
+
     public const EVENT_REMOVED_FROM_CART = 'removed_from_cart';
 
     /** @var array<int, array<string, mixed>> */

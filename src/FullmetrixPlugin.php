@@ -19,7 +19,7 @@ final class FullmetrixPlugin extends Bundle
         return __DIR__;
     }
 
-    public function getContainerExtension(): ?ExtensionInterface
+    public function getContainerExtension(): ExtensionInterface
     {
         return $this->fullmetrixExtension ??= new FullmetrixExtension();
     }

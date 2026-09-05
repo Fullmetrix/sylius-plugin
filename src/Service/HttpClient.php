@@ -45,7 +45,7 @@ final class HttpClient
             \CURLOPT_RETURNTRANSFER => true,
             \CURLOPT_FOLLOWLOCATION => false,
             \CURLOPT_SSL_VERIFYPEER => true,
-            \CURLOPT_NOSIGNAL => 1,
+            \CURLOPT_NOSIGNAL => true,
             \CURLOPT_CONNECTTIMEOUT_MS => $connect,
             \CURLOPT_TIMEOUT_MS => $total,
         ]);
@@ -85,7 +85,7 @@ final class HttpClient
             \CURLOPT_RETURNTRANSFER => true,
             \CURLOPT_FOLLOWLOCATION => false,
             \CURLOPT_SSL_VERIFYPEER => true,
-            \CURLOPT_NOSIGNAL => 1,
+            \CURLOPT_NOSIGNAL => true,
             \CURLOPT_CONNECTTIMEOUT_MS => $this->connectTimeoutMs,
             \CURLOPT_TIMEOUT_MS => max($this->totalTimeoutMs, 2000),
         ]);

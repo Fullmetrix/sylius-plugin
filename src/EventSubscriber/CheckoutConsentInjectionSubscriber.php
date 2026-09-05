@@ -13,6 +13,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 final class CheckoutConsentInjectionSubscriber implements EventSubscriberInterface
 {
     private const TOKEN_ANCHOR = '/<input\b[^>]*name="sylius_checkout_complete\[_token\]"[^>]*>/i';
+
     private const NOTES_ANCHOR = '/<textarea\b[^>]*name="sylius_checkout_complete\[notes\]"[^>]*>/i';
 
     public function __construct(

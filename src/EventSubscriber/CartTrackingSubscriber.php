@@ -48,7 +48,7 @@ final class CartTrackingSubscriber implements EventSubscriberInterface
                 'variation_id' => $variant?->getId(),
                 'name' => $item->getProductName(),
                 'quantity' => $item->getQuantity(),
-                'price' => number_format(($item->getUnitPrice() ?? 0) / 100, 2, '.', ''),
+                'price' => number_format($item->getUnitPrice() / 100, 2, '.', ''),
                 'sku' => $variant?->getCode(),
             ],
             'cart' => $this->cartSerializer->serialize($order),

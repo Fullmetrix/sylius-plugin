@@ -10,15 +10,23 @@ use Fullmetrix\SyliusPlugin\Entity\FullmetrixLog;
 final class Logger
 {
     public const TYPE_REGISTERED = 'registered';
+
     public const TYPE_DISCONNECTED = 'disconnected';
+
     public const TYPE_SYNC_START = 'sync_start';
+
     public const TYPE_SYNC_COMPLETE = 'sync_complete';
+
     public const TYPE_SYNC_ERROR = 'sync_error';
+
     public const TYPE_WEBHOOK = 'webhook';
+
     public const TYPE_COMMAND = 'command';
 
     private const MAX_ENTRIES = 30;
+
     private const MAX_MESSAGE_LEN = 256;
+
     private const DEDUP_WINDOW_SECONDS = 60;
 
     public function __construct(private readonly EntityManagerInterface $em)
