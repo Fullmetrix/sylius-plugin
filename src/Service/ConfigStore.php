@@ -20,6 +20,8 @@ final class ConfigStore
     public const KEY_PLUGIN_CONFIG = 'plugin_config';
     public const KEY_STORE_CANONICAL_ID = 'store_canonical_id';
 
+    private const SYNC_STALE_AFTER_SECONDS = 600;
+
     private array $cache = [];
 
     public function __construct(private readonly EntityManagerInterface $em)
@@ -78,6 +80,23 @@ final class ConfigStore
         }
 
         unset($this->cache[$key]);
+    }
+
+    public function isSyncInProgress(): bool
+    {
+        $value = $this->get(self::KEY_SYNC_IN_PROGRESS);
+        if (!\is_array($value)) {
+            return false;
+        }
+
+        $startedAt = (int) ($value['started_at'] ?? 0);
+        if ($startedAt <= 0 || (time() - $startedAt) > self::SYNC_STALE_AFTER_SECONDS) {
+            $this->set(self::KEY_SYNC_IN_PROGRESS, null);
+
+            return false;
+        }
+
+        return true;
     }
 
     public function isRegistered(): bool

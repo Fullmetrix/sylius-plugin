@@ -45,20 +45,17 @@ final class ConnectionController
             $submittedCode = $code;
         }
 
-        $tab = (string) $request->query->get('tab', 'connection');
-
         $template = $this->twig->getLoader()->exists('@SyliusAdmin/shared/layout/base.html.twig')
             ? '@FullmetrixPlugin/admin/dashboard.v2.html.twig'
             : '@FullmetrixPlugin/admin/dashboard.html.twig';
 
         return new Response($this->twig->render($template, [
-            'tab' => $tab,
             'registered' => $this->config->isRegistered(),
             'connection_code' => $this->config->getConnectionCode(),
             'error' => $error,
             'submitted_code' => $submittedCode,
             'last_sync' => $this->config->get(ConfigStore::KEY_LAST_SYNC),
-            'sync_in_progress' => $this->config->get(ConfigStore::KEY_SYNC_IN_PROGRESS),
+            'sync_in_progress' => $this->config->isSyncInProgress(),
             'export_count' => (int) $this->config->get(ConfigStore::KEY_EXPORT_COUNT, 0),
             'webhooks_enabled' => true === $this->config->get(ConfigStore::KEY_WEBHOOKS_ENABLED, true),
             'logs' => $this->loadLogs(),

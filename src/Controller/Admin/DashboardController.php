@@ -27,14 +27,11 @@ final class DashboardController
 
     public function show(Request $request): Response
     {
-        $tab = (string) $request->query->get('tab', 'connection');
-
         return new Response($this->twig->render('@FullmetrixPlugin/admin/dashboard.html.twig', [
-            'tab' => $tab,
             'registered' => $this->config->isRegistered(),
             'connection_code' => $this->config->getConnectionCode(),
             'last_sync' => $this->config->get(ConfigStore::KEY_LAST_SYNC),
-            'sync_in_progress' => $this->config->get(ConfigStore::KEY_SYNC_IN_PROGRESS),
+            'sync_in_progress' => $this->config->isSyncInProgress(),
             'export_count' => (int) $this->config->get(ConfigStore::KEY_EXPORT_COUNT, 0),
             'webhooks_enabled' => true === $this->config->get(ConfigStore::KEY_WEBHOOKS_ENABLED, true),
             'logs' => $this->loadLogs(),
@@ -46,7 +43,7 @@ final class DashboardController
         $this->logger->clear();
 
         return new RedirectResponse(
-            $this->urls->generate('fullmetrix_admin_connection', ['tab' => 'logs']),
+            $this->urls->generate('fullmetrix_admin_connection'),
         );
     }
 

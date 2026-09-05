@@ -38,6 +38,8 @@ final class StreamController
         }
 
         $since = $this->parseSince($request);
+        $this->markSyncStarted(null === $since ? 'bulk' : 'incremental');
+
         $response = $this->ndjsonResponse(function () use ($since): \Generator {
             yield $this->encode([
                 'type' => 'meta',
@@ -47,6 +49,7 @@ final class StreamController
             ]);
 
             $totalCount = 0;
+            $counts = [];
             foreach (self::ENTITIES as $entity) {
                 $count = 0;
                 foreach ($this->paginator->streamKeyset($entity, 1000, $since) as $row) {
@@ -58,8 +61,11 @@ final class StreamController
                     ++$count;
                 }
                 yield $this->encode(['type' => 'entity_complete', 'entity' => $entity, 'count' => $count]);
+                $counts[$entity] = $count;
                 $totalCount += $count;
             }
+
+            $this->markSyncCompleted($counts);
 
             yield $this->encode(['type' => 'done', 'completed_at' => $this->iso(), 'count' => $totalCount]);
         });
@@ -79,6 +85,8 @@ final class StreamController
         }
 
         $since = $this->parseSince($request);
+        $this->markSyncStarted(null === $since ? 'bulk' : 'incremental');
+
         $response = $this->ndjsonResponse(function () use ($entity, $since): \Generator {
             yield $this->encode([
                 'type' => 'meta',
@@ -98,6 +106,8 @@ final class StreamController
                 ++$count;
             }
 
+            $this->markSyncCompleted([$entity => $count]);
+
             yield $this->encode(['type' => 'entity_complete', 'entity' => $entity, 'count' => $count]);
             yield $this->encode(['type' => 'done', 'completed_at' => $this->iso(), 'count' => $count]);
         });
@@ -105,6 +115,35 @@ final class StreamController
         $this->config->set(ConfigStore::KEY_EXPORT_COUNT, ((int) $this->config->get(ConfigStore::KEY_EXPORT_COUNT, 0)) + 1);
 
         return $response;
+    }
+
+    private function markSyncStarted(string $syncType): void
+    {
+        $this->config->set(ConfigStore::KEY_SYNC_IN_PROGRESS, [
+            'started_at' => time(),
+            'type' => $syncType,
+        ]);
+    }
+
+    /**
+     * @param array<string, int> $counts
+     */
+    private function markSyncCompleted(array $counts): void
+    {
+        $previous = $this->config->get(ConfigStore::KEY_LAST_SYNC);
+        $entities = \is_array($previous) && \is_array($previous['entities'] ?? null)
+            ? $previous['entities']
+            : [];
+
+        foreach ($counts as $entity => $count) {
+            $entities[$entity] = (int) $count;
+        }
+
+        $this->config->set(ConfigStore::KEY_LAST_SYNC, [
+            'completed_at' => time(),
+            'entities' => $entities,
+        ]);
+        $this->config->set(ConfigStore::KEY_SYNC_IN_PROGRESS, null);
     }
 
     private function ndjsonResponse(callable $generator): StreamedResponse
