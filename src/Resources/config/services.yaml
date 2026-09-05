@@ -29,6 +29,12 @@ services:
     Fullmetrix\SyliusPlugin\EventSubscriber\:
         resource: '../../EventSubscriber/*'
 
+    Fullmetrix\SyliusPlugin\Menu\AdminMenuListener:
+        tags:
+            - name: kernel.event_listener
+              event: sylius.menu.admin.main
+              method: addFullmetrixItem
+
     Fullmetrix\SyliusPlugin\Controller\:
         resource: '../../Controller/*'
         exclude:
