@@ -17,15 +17,21 @@ final class HttpClient
      *
      * @return array{status: int, body: string, error: ?string}
      */
-    public function post(string $url, string $body, array $headers, bool $fireAndForget = false): array
-    {
+    public function post(
+        string $url,
+        string $body,
+        array $headers,
+        bool $fireAndForget = false,
+        ?int $connectTimeoutMs = null,
+        ?int $totalTimeoutMs = null,
+    ): array {
         $ch = curl_init($url);
         if (false === $ch) {
             return ['status' => 0, 'body' => '', 'error' => 'curl_init_failed'];
         }
 
-        $connect = $this->connectTimeoutMs;
-        $total = $this->totalTimeoutMs;
+        $connect = $connectTimeoutMs ?? $this->connectTimeoutMs;
+        $total = $totalTimeoutMs ?? $this->totalTimeoutMs;
         if ($fireAndForget && \function_exists('fastcgi_finish_request')) {
             $connect = 2000;
             $total = 3000;
