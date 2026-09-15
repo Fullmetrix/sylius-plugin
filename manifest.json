@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "minimumRequired": "1.0.0",
-  "changelog": "The storefront tracker now respects the dashboard tracker toggle. Corrects the minimum plugin version metadata used by the updater."
+  "changelog": "Carts are no longer streamed as orders. The storefront tracker respects the dashboard tracker toggle."
 }

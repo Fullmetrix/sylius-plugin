@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Fullmetrix\SyliusPlugin\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\QueryBuilder;
 use Doctrine\ORM\Tools\Pagination\Paginator;
 use Sylius\Component\Core\Model\CustomerInterface;
 use Sylius\Component\Core\Model\OrderInterface;
@@ -34,15 +35,7 @@ final class EntityPaginator
         $perPage = max(1, min(self::MAX_PER_PAGE, $perPage));
 
         $qb = $this->em->getRepository($class)->createQueryBuilder('e');
-        if ('coupons' === $entity) {
-            $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
-        }
-        if ('refunds' === $entity) {
-            $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
-        }
-        if (null !== $since && $this->hasUpdatedAtField($class)) {
-            $qb->andWhere('e.updatedAt >= :since')->setParameter('since', new \DateTimeImmutable($since));
-        }
+        $this->applyEntityFilters($qb, $entity, $class, $since);
         $qb->orderBy('e.id', 'ASC');
         $qb->setFirstResult(($page - 1) * $perPage);
         $qb->setMaxResults($perPage);
@@ -73,15 +66,7 @@ final class EntityPaginator
                 ->orderBy('e.id', 'ASC')
                 ->setMaxResults($batchSize);
 
-            if ('coupons' === $entity) {
-                $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
-            }
-            if ('refunds' === $entity) {
-                $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
-            }
-            if (null !== $since && $this->hasUpdatedAtField($class)) {
-                $qb->andWhere('e.updatedAt >= :since')->setParameter('since', new \DateTimeImmutable($since));
-            }
+            $this->applyEntityFilters($qb, $entity, $class, $since);
 
             $rows = $qb->getQuery()->getResult();
             if (empty($rows)) {
@@ -111,15 +96,7 @@ final class EntityPaginator
         }
 
         $qb = $this->em->getRepository($class)->createQueryBuilder('e')->select('COUNT(e.id)');
-        if ('coupons' === $entity) {
-            $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
-        }
-        if ('refunds' === $entity) {
-            $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
-        }
-        if (null !== $since && $this->hasUpdatedAtField($class)) {
-            $qb->andWhere('e.updatedAt >= :since')->setParameter('since', new \DateTimeImmutable($since));
-        }
+        $this->applyEntityFilters($qb, $entity, $class, $since);
 
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
@@ -143,12 +120,7 @@ final class EntityPaginator
             ->setMaxResults(min(500_000, $limit))
             ->setFirstResult($offset);
 
-        if ('coupons' === $entity) {
-            $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
-        }
-        if ('refunds' === $entity) {
-            $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
-        }
+        $this->applyEntityFilters($qb, $entity, $class, null);
 
         $result = [];
         foreach ($qb->getQuery()->getResult() as $row) {
@@ -159,6 +131,22 @@ final class EntityPaginator
         }
 
         return $result;
+    }
+
+    private function applyEntityFilters(QueryBuilder $qb, string $entity, string $class, ?string $since): void
+    {
+        if ('orders' === $entity || 'refunds' === $entity) {
+            $qb->andWhere('e.state != :cartState')->setParameter('cartState', OrderInterface::STATE_CART);
+        }
+        if ('coupons' === $entity) {
+            $qb->andWhere('e.couponBased = :cb')->setParameter('cb', true);
+        }
+        if ('refunds' === $entity) {
+            $qb->andWhere('e.paymentState = :ps')->setParameter('ps', 'refunded');
+        }
+        if (null !== $since && $this->hasUpdatedAtField($class)) {
+            $qb->andWhere('e.updatedAt >= :since')->setParameter('since', new \DateTimeImmutable($since));
+        }
     }
 
     public function resolveClass(string $entity): ?string
