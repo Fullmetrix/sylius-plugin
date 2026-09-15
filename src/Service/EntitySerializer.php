@@ -60,8 +60,10 @@ final class EntitySerializer
         'postcode', 'countryCode', 'provinceCode', 'provinceName', 'phoneNumber',
     ];
 
-    public function __construct(private readonly EntityManagerInterface $em)
-    {
+    public function __construct(
+        private readonly EntityManagerInterface $em,
+        private readonly ProductImageUrl $imageUrl,
+    ) {
     }
 
     public function serializeOrder(OrderInterface $order): array
@@ -89,8 +91,8 @@ final class EntitySerializer
             'customer_note' => $order->getNotes(),
             'payment_method' => $this->paymentMethod($order),
             'payment_method_title' => $this->paymentMethodTitle($order),
-            'billing' => $this->address($order->getBillingAddress()),
-            'shipping' => $this->address($order->getShippingAddress()),
+            'billing' => $this->address($order->getBillingAddress(), $this->orderEmail($order)),
+            'shipping' => $this->address($order->getShippingAddress(), $this->orderEmail($order)),
             'line_items' => $this->lineItems($order),
             'shipping_lines' => $this->shippingLines($order),
             'coupon_lines' => $this->couponLines($order),
@@ -142,13 +144,6 @@ final class EntitySerializer
             }
         }
 
-        $mainImage = null;
-        foreach ($product->getImages() as $image) {
-            $mainImage = $image->getPath();
-
-            break;
-        }
-
         return [
             'id' => $product->getId(),
             'name' => (string) $product->getName(),
@@ -159,7 +154,7 @@ final class EntitySerializer
             'status' => $product->isEnabled() ? 'publish' : 'draft',
             'featured' => false,
             'categories' => $categories,
-            'image_url' => $mainImage,
+            'image_url' => $this->imageUrl->forProduct($product),
             'variations' => $variants,
             'date_created' => $this->iso($product->getCreatedAt()),
             'date_updated' => $this->iso($product->getUpdatedAt()),
@@ -240,13 +235,14 @@ final class EntitySerializer
         ];
     }
 
-    private function address(?AddressInterface $address): ?array
+    private function address(?AddressInterface $address, ?string $email = null): ?array
     {
         if (null === $address) {
             return null;
         }
 
         return [
+            'email' => $email,
             'first_name' => $address->getFirstName(),
             'last_name' => $address->getLastName(),
             'company' => $address->getCompany(),

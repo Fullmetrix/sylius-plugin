@@ -13,6 +13,7 @@ final class CartSerializer
     public function __construct(
         private readonly UrlGeneratorInterface $urls,
         private readonly ConfigStore $config,
+        private readonly ProductImageUrl $imageUrl,
     ) {
     }
 
@@ -23,14 +24,7 @@ final class CartSerializer
             $variant = $item->getVariant();
             $product = $variant?->getProduct();
 
-            $imageUrl = null;
-            if ($product instanceof CoreProductInterface) {
-                foreach ($product->getImages() as $image) {
-                    $imageUrl = $image->getPath();
-
-                    break;
-                }
-            }
+            $imageUrl = $product instanceof CoreProductInterface ? $this->imageUrl->forProduct($product) : null;
 
             $items[] = [
                 'product_id' => $product?->getId(),

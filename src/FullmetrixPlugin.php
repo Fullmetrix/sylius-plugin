@@ -10,7 +10,7 @@ use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 final class FullmetrixPlugin extends Bundle
 {
-    public const VERSION = '1.2.1';
+    public const VERSION = '1.2.2';
 
     private ?FullmetrixExtension $fullmetrixExtension = null;
 

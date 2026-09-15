@@ -1,5 +1,5 @@
 {
-  "version": "1.2.1",
+  "version": "1.2.2",
   "minimumRequired": "1.0.0",
-  "changelog": "Carts are no longer streamed as orders. The storefront tracker respects the dashboard tracker toggle."
+  "changelog": "Product images are sent as absolute URLs and the order email reaches the billing address. Carts are no longer streamed as orders. The storefront tracker respects the dashboard tracker toggle."
 }
