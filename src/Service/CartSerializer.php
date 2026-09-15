@@ -14,6 +14,7 @@ final class CartSerializer
         private readonly UrlGeneratorInterface $urls,
         private readonly ConfigStore $config,
         private readonly ProductImageUrl $imageUrl,
+        private readonly EntitySerializer $serializer,
     ) {
     }
 
@@ -28,7 +29,7 @@ final class CartSerializer
 
             $items[] = [
                 'product_id' => $product?->getId(),
-                'variation_id' => $variant?->getId(),
+                'variation_id' => null !== $variant ? $this->serializer->variantExternalId($variant) : null,
                 'variant_code' => $variant?->getCode(),
                 'name' => $item->getProductName(),
                 'quantity' => $item->getQuantity(),

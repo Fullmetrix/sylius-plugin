@@ -68,58 +68,63 @@ final class WebhookQueue
         $this->queue = [];
 
         foreach ($items as $item) {
-            $data = $this->resolve($item['type'], $item['id']);
-            if (null === $data) {
-                continue;
-            }
-
-            $payload = [
-                'event' => $item['type'] . '.updated',
-                'entity_type' => $item['type'],
-                'data' => $data,
-                'plugin_version' => $this->pluginVersion,
-                'timestamp' => $this->signer->nowMs(),
-            ];
-
-            $body = json_encode($payload, \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES) ?: '{}';
-            $headers = $this->signer->buildHeaders($secret, $code, $body);
-
-            $response = $this->http->post($this->webhookEndpoint, $body, $headers, true);
-            if ($response['status'] < 200 || $response['status'] >= 300) {
-                $this->logger->log(Logger::TYPE_WEBHOOK, 'Webhook send failed', [
-                    'type' => $item['type'],
-                    'id' => $item['id'],
-                    'status' => $response['status'],
-                    'error' => $response['error'],
-                ]);
+            foreach ($this->resolve($item['type'], $item['id']) as $data) {
+                $this->send($item, $data, $secret, $code);
             }
         }
     }
 
-    private function resolve(string $type, int|string $id): ?array
+    /** @param array{type: string, id: int|string} $item */
+    private function send(array $item, array $data, string $secret, string $code): void
+    {
+        $payload = [
+            'event' => $item['type'] . '.updated',
+            'entity_type' => $item['type'],
+            'data' => $data,
+            'plugin_version' => $this->pluginVersion,
+            'timestamp' => $this->signer->nowMs(),
+        ];
+
+        $body = json_encode($payload, \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES) ?: '{}';
+        $headers = $this->signer->buildHeaders($secret, $code, $body);
+
+        $response = $this->http->post($this->webhookEndpoint, $body, $headers, true);
+        if ($response['status'] < 200 || $response['status'] >= 300) {
+            $this->logger->log(Logger::TYPE_WEBHOOK, 'Webhook send failed', [
+                'type' => $item['type'],
+                'id' => $item['id'],
+                'status' => $response['status'],
+                'error' => $response['error'],
+            ]);
+        }
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function resolve(string $type, int|string $id): array
     {
         return match ($type) {
-            self::TYPE_ORDER => $this->resolveEntity(OrderInterface::class, $id, fn ($e) => $this->serializer->serializeOrder($e)),
-            self::TYPE_REFUND => $this->resolveEntity(OrderInterface::class, $id, fn ($e) => $this->serializer->serializeRefund($e)),
-            self::TYPE_CUSTOMER => $this->resolveEntity(CustomerInterface::class, $id, fn ($e) => $this->serializer->serializeCustomer($e)),
-            self::TYPE_PRODUCT => $this->resolveEntity(ProductInterface::class, $id, fn ($e) => $this->serializer->serializeProduct($e)),
-            self::TYPE_CATEGORY => $this->resolveEntity(TaxonInterface::class, $id, fn ($e) => $this->serializer->serializeCategory($e)),
-            self::TYPE_COUPON => $this->resolveEntity(PromotionInterface::class, $id, fn ($e) => $this->serializer->serializeCoupon($e)),
-            default => null,
+            self::TYPE_ORDER => $this->resolveEntity(OrderInterface::class, $id, fn ($e) => [$this->serializer->serializeOrder($e)]),
+            self::TYPE_REFUND => $this->resolveEntity(OrderInterface::class, $id, fn ($e) => [$this->serializer->serializeRefund($e)]),
+            self::TYPE_CUSTOMER => $this->resolveEntity(CustomerInterface::class, $id, fn ($e) => [$this->serializer->serializeCustomer($e)]),
+            self::TYPE_PRODUCT => $this->resolveEntity(ProductInterface::class, $id, fn ($e) => $this->serializer->serializeProductRows($e)),
+            self::TYPE_CATEGORY => $this->resolveEntity(TaxonInterface::class, $id, fn ($e) => [$this->serializer->serializeCategory($e)]),
+            self::TYPE_COUPON => $this->resolveEntity(PromotionInterface::class, $id, fn ($e) => [$this->serializer->serializeCoupon($e)]),
+            default => [],
         };
     }
 
-    private function resolveEntity(string $class, int|string $id, callable $serialize): ?array
+    /** @return array<int, array<string, mixed>> */
+    private function resolveEntity(string $class, int|string $id, callable $serialize): array
     {
         try {
             $entity = $this->em->getRepository($class)->find($id);
             if (null === $entity) {
-                return null;
+                return [];
             }
 
             return $serialize($entity);
         } catch (\Throwable) {
-            return null;
+            return [];
         }
     }
 }

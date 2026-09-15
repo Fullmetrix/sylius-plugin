@@ -53,8 +53,7 @@ final class ExportController
         $result = $this->paginator->paginate($type, $page, $perPage, $since);
         $items = [];
         foreach ($result['items'] as $entity) {
-            $serialized = $this->serializeEntity($type, $entity);
-            if (null !== $serialized) {
+            foreach ($this->serializeEntity($type, $entity) as $serialized) {
                 $items[] = $serialized;
             }
         }
@@ -119,16 +118,17 @@ final class ExportController
         ]);
     }
 
-    private function serializeEntity(string $type, object $entity): ?array
+    /** @return array<int, array<string, mixed>> */
+    private function serializeEntity(string $type, object $entity): array
     {
         return match (true) {
-            ('orders' === $type) && $entity instanceof OrderInterface => $this->serializer->serializeOrder($entity),
-            ('refunds' === $type) && $entity instanceof OrderInterface => $this->serializer->serializeRefund($entity),
-            ('customers' === $type) && $entity instanceof CustomerInterface => $this->serializer->serializeCustomer($entity),
-            ('products' === $type) && $entity instanceof ProductInterface => $this->serializer->serializeProduct($entity),
-            ('categories' === $type) && $entity instanceof TaxonInterface => $this->serializer->serializeCategory($entity),
-            ('coupons' === $type) && $entity instanceof PromotionInterface => $this->serializer->serializeCoupon($entity),
-            default => null,
+            ('orders' === $type) && $entity instanceof OrderInterface => [$this->serializer->serializeOrder($entity)],
+            ('refunds' === $type) && $entity instanceof OrderInterface => [$this->serializer->serializeRefund($entity)],
+            ('customers' === $type) && $entity instanceof CustomerInterface => [$this->serializer->serializeCustomer($entity)],
+            ('products' === $type) && $entity instanceof ProductInterface => $this->serializer->serializeProductRows($entity),
+            ('categories' === $type) && $entity instanceof TaxonInterface => [$this->serializer->serializeCategory($entity)],
+            ('coupons' === $type) && $entity instanceof PromotionInterface => [$this->serializer->serializeCoupon($entity)],
+            default => [],
         };
     }
 

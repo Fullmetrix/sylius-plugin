@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Fullmetrix\SyliusPlugin\EventSubscriber;
 
 use Fullmetrix\SyliusPlugin\Service\CartSerializer;
+use Fullmetrix\SyliusPlugin\Service\EntitySerializer;
 use Fullmetrix\SyliusPlugin\Service\TrackingQueue;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\OrderItemInterface;
@@ -16,6 +17,7 @@ final class CartTrackingSubscriber implements EventSubscriberInterface
     public function __construct(
         private readonly TrackingQueue $tracking,
         private readonly CartSerializer $cartSerializer,
+        private readonly EntitySerializer $serializer,
     ) {
     }
 
@@ -45,7 +47,7 @@ final class CartTrackingSubscriber implements EventSubscriberInterface
         $this->tracking->enqueue(TrackingQueue::EVENT_ADDED_TO_CART, [
             'added_item' => [
                 'product_id' => $product?->getId(),
-                'variation_id' => $variant?->getId(),
+                'variation_id' => null !== $variant ? $this->serializer->variantExternalId($variant) : null,
                 'name' => $item->getProductName(),
                 'quantity' => $item->getQuantity(),
                 'price' => number_format($item->getUnitPrice() / 100, 2, '.', ''),
@@ -73,7 +75,7 @@ final class CartTrackingSubscriber implements EventSubscriberInterface
         $this->tracking->enqueue(TrackingQueue::EVENT_REMOVED_FROM_CART, [
             'removed_item' => [
                 'product_id' => $product?->getId(),
-                'variation_id' => $variant?->getId(),
+                'variation_id' => null !== $variant ? $this->serializer->variantExternalId($variant) : null,
                 'name' => $item->getProductName(),
                 'sku' => $variant?->getCode(),
             ],

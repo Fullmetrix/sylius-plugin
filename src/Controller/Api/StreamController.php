@@ -53,12 +53,10 @@ final class StreamController
             foreach (self::ENTITIES as $entity) {
                 $count = 0;
                 foreach ($this->paginator->streamKeyset($entity, 1000, $since) as $row) {
-                    $payload = $this->serializeRow($entity, $row);
-                    if (null === $payload) {
-                        continue;
+                    foreach ($this->serializeRows($entity, $row) as $payload) {
+                        yield $this->encode(['type' => $this->lineType($entity), 'data' => $payload]);
+                        ++$count;
                     }
-                    yield $this->encode(['type' => $this->lineType($entity), 'data' => $payload]);
-                    ++$count;
                 }
                 yield $this->encode(['type' => 'entity_complete', 'entity' => $entity, 'count' => $count]);
                 $counts[$entity] = $count;
@@ -98,12 +96,10 @@ final class StreamController
 
             $count = 0;
             foreach ($this->paginator->streamKeyset($entity, 1000, $since) as $row) {
-                $payload = $this->serializeRow($entity, $row);
-                if (null === $payload) {
-                    continue;
+                foreach ($this->serializeRows($entity, $row) as $payload) {
+                    yield $this->encode(['type' => $this->lineType($entity), 'data' => $payload]);
+                    ++$count;
                 }
-                yield $this->encode(['type' => $this->lineType($entity), 'data' => $payload]);
-                ++$count;
             }
 
             $this->markSyncCompleted([$entity => $count]);
@@ -161,16 +157,17 @@ final class StreamController
         return $response;
     }
 
-    private function serializeRow(string $entity, object $row): ?array
+    /** @return array<int, array<string, mixed>> */
+    private function serializeRows(string $entity, object $row): array
     {
         return match (true) {
-            ('orders' === $entity) && $row instanceof OrderInterface => $this->serializer->serializeOrder($row),
-            ('refunds' === $entity) && $row instanceof OrderInterface => $this->serializer->serializeRefund($row),
-            ('customers' === $entity) && $row instanceof CustomerInterface => $this->serializer->serializeCustomer($row),
-            ('products' === $entity) && $row instanceof ProductInterface => $this->serializer->serializeProduct($row),
-            ('categories' === $entity) && $row instanceof TaxonInterface => $this->serializer->serializeCategory($row),
-            ('coupons' === $entity) && $row instanceof PromotionInterface => $this->serializer->serializeCoupon($row),
-            default => null,
+            ('orders' === $entity) && $row instanceof OrderInterface => [$this->serializer->serializeOrder($row)],
+            ('refunds' === $entity) && $row instanceof OrderInterface => [$this->serializer->serializeRefund($row)],
+            ('customers' === $entity) && $row instanceof CustomerInterface => [$this->serializer->serializeCustomer($row)],
+            ('products' === $entity) && $row instanceof ProductInterface => $this->serializer->serializeProductRows($row),
+            ('categories' === $entity) && $row instanceof TaxonInterface => [$this->serializer->serializeCategory($row)],
+            ('coupons' === $entity) && $row instanceof PromotionInterface => [$this->serializer->serializeCoupon($row)],
+            default => [],
         };
     }
 

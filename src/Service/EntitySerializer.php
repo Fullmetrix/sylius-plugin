@@ -16,6 +16,7 @@ use Sylius\Component\Core\Model\ProductInterface;
 use Sylius\Component\Core\Model\ProductVariantInterface;
 use Sylius\Component\Core\Model\TaxonInterface;
 use Sylius\Component\Promotion\Model\PromotionInterface;
+use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 
 final class EntitySerializer
 {
@@ -63,6 +64,7 @@ final class EntitySerializer
     public function __construct(
         private readonly EntityManagerInterface $em,
         private readonly ProductImageUrl $imageUrl,
+        private readonly UrlGeneratorInterface $urls,
     ) {
     }
 
@@ -128,38 +130,165 @@ final class EntitySerializer
         ];
     }
 
+    /**
+     * Le produit puis une ligne par variante, au format des autres connecteurs :
+     * id compose `<produit>_<variante>`, `parent_id` et `type: variation`.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function serializeProductRows(ProductInterface $product): array
+    {
+        $rows = [$this->serializeProduct($product)];
+        foreach ($product->getVariants() as $variant) {
+            if ($variant instanceof ProductVariantInterface) {
+                $rows[] = $this->serializeVariant($product, $variant);
+            }
+        }
+
+        return $rows;
+    }
+
     public function serializeProduct(ProductInterface $product): array
     {
         $variants = [];
         foreach ($product->getVariants() as $variant) {
             if ($variant instanceof ProductVariantInterface) {
-                $variants[] = $this->variant($variant);
+                $variants[] = $variant;
             }
         }
 
         $categories = [];
         foreach ($product->getTaxons() as $taxon) {
             if (null !== $taxon->getId()) {
-                $categories[] = $taxon->getId();
+                $categories[] = ['id' => $taxon->getId(), 'name' => (string) $taxon->getName()];
             }
         }
 
-        return [
+        $stock = 0;
+        $tracked = false;
+        foreach ($variants as $variant) {
+            $stock += max(0, (int) $variant->getOnHand() - (int) $variant->getOnHold());
+            $tracked = $tracked || $variant->isTracked();
+        }
+        $pricing = [] === $variants ? [] : $this->pricing($variants[0]);
+        $imageUrl = $this->imageUrl->forProduct($product);
+
+        return array_merge([
             'id' => $product->getId(),
+            'type' => \count($variants) > 1 ? 'variable' : 'simple',
+            'parent_id' => null,
             'name' => (string) $product->getName(),
             'code' => $product->getCode(),
+            'sku' => $product->getCode(),
             'description' => $product->getDescription(),
             'short_description' => $product->getShortDescription(),
             'slug' => $product->getSlug(),
+            'permalink' => $this->productUrl($product),
             'status' => $product->isEnabled() ? 'publish' : 'draft',
             'featured' => false,
             'categories' => $categories,
-            'image_url' => $this->imageUrl->forProduct($product),
-            'variations' => $variants,
+            'category_ids' => array_column($categories, 'id'),
+            'image_url' => $imageUrl,
+            'images' => null === $imageUrl ? [] : [['src' => $imageUrl]],
+            'stock_quantity' => $stock,
+            'stock_status' => !$tracked || $stock > 0 ? 'instock' : 'outofstock',
+            'manage_stock' => $tracked,
             'date_created' => $this->iso($product->getCreatedAt()),
-            'date_updated' => $this->iso($product->getUpdatedAt()),
+            'date_modified' => $this->iso($product->getUpdatedAt()),
             'meta_data' => $this->extraFieldsMeta($product, self::PRODUCT_MAPPED_FIELDS),
+        ], $pricing);
+    }
+
+    private function serializeVariant(ProductInterface $product, ProductVariantInterface $variant): array
+    {
+        $attributes = [];
+        foreach ($variant->getOptionValues() as $optionValue) {
+            $attributes[] = [
+                'name' => (string) ($optionValue->getOption()?->getName() ?? $optionValue->getOptionCode()),
+                'option' => (string) $optionValue->getValue(),
+            ];
+        }
+        $stock = max(0, (int) $variant->getOnHand() - (int) $variant->getOnHold());
+        $imageUrl = null;
+        foreach ($variant->getImages() as $image) {
+            $imageUrl = $this->imageUrl->fromPath($image->getPath());
+
+            break;
+        }
+        $imageUrl ??= $this->imageUrl->forProduct($product);
+        $variantName = trim((string) $variant->getName());
+
+        return array_merge([
+            'id' => $this->variantExternalId($variant),
+            'type' => 'variation',
+            'parent_id' => $product->getId(),
+            'name' => '' === $variantName ? (string) $product->getName() : $product->getName() . ' - ' . $variantName,
+            'code' => $variant->getCode(),
+            'sku' => $variant->getCode(),
+            'slug' => $product->getSlug(),
+            'permalink' => $this->productUrl($product),
+            'status' => $variant->isEnabled() && $product->isEnabled() ? 'publish' : 'draft',
+            'categories' => [],
+            'category_ids' => [],
+            'attributes' => $attributes,
+            'image_url' => $imageUrl,
+            'images' => null === $imageUrl ? [] : [['src' => $imageUrl]],
+            'stock_quantity' => $stock,
+            'stock_status' => !$variant->isTracked() || $stock > 0 ? 'instock' : 'outofstock',
+            'manage_stock' => $variant->isTracked(),
+            'weight' => $variant->getWeight(),
+            'date_created' => $this->iso($variant->getCreatedAt()),
+            'date_modified' => $this->iso($variant->getUpdatedAt()),
+            'meta_data' => [],
+        ], $this->pricing($variant));
+    }
+
+    public function variantExternalId(ProductVariantInterface $variant): string
+    {
+        return $variant->getProduct()?->getId() . '_' . $variant->getId();
+    }
+
+    /** @return array<string, mixed> */
+    private function pricing(ProductVariantInterface $variant): array
+    {
+        $channelPricing = null;
+        foreach ($variant->getChannelPricings() as $pricing) {
+            $channelPricing = $pricing;
+
+            break;
+        }
+        if (null === $channelPricing) {
+            return ['price' => null, 'regular_price' => null, 'sale_price' => null, 'on_sale' => false];
+        }
+
+        $price = $this->money($channelPricing->getPrice());
+        $original = $channelPricing->getOriginalPrice();
+        $onSale = null !== $original && $original > $channelPricing->getPrice();
+
+        return [
+            'price' => $price,
+            'regular_price' => $onSale ? $this->money($original) : $price,
+            'sale_price' => $onSale ? $price : null,
+            'on_sale' => $onSale,
         ];
+    }
+
+    private function productUrl(ProductInterface $product): ?string
+    {
+        $slug = $product->getSlug();
+        if (null === $slug || '' === $slug) {
+            return null;
+        }
+
+        try {
+            return $this->urls->generate(
+                'sylius_shop_product_show',
+                ['slug' => $slug, '_locale' => $product->getTranslation()->getLocale()],
+                UrlGeneratorInterface::ABSOLUTE_URL,
+            );
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     public function serializeCategory(TaxonInterface $taxon): array
@@ -266,7 +395,7 @@ final class EntitySerializer
                 'id' => $item->getId(),
                 'name' => (string) $item->getProductName(),
                 'product_id' => $product?->getId(),
-                'variation_id' => $variant?->getId(),
+                'variation_id' => null !== $variant ? $this->variantExternalId($variant) : null,
                 'variant_code' => $variant?->getCode(),
                 'sku' => $variant?->getCode(),
                 'quantity' => $item->getQuantity(),
@@ -343,29 +472,6 @@ final class EntitySerializer
         }
 
         return $payments;
-    }
-
-    private function variant(ProductVariantInterface $variant): array
-    {
-        $channelPricing = null;
-        foreach ($variant->getChannelPricings() as $pricing) {
-            $channelPricing = $pricing;
-
-            break;
-        }
-
-        return [
-            'id' => $variant->getId(),
-            'code' => $variant->getCode(),
-            'name' => $variant->getName(),
-            'price' => null !== $channelPricing ? $this->money($channelPricing->getPrice()) : null,
-            'original_price' => null !== $channelPricing && null !== $channelPricing->getOriginalPrice()
-                ? $this->money($channelPricing->getOriginalPrice())
-                : null,
-            'on_sale' => null !== $channelPricing && null !== $channelPricing->getOriginalPrice(),
-            'on_hand' => $variant->getOnHand(),
-            'tracked' => $variant->isTracked(),
-        ];
     }
 
     private function orderDiscountTotal(OrderInterface $order): int
