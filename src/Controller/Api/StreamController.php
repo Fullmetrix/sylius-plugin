@@ -1,0 +1,223 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Fullmetrix\SyliusPlugin\Controller\Api;
+
+use Fullmetrix\SyliusPlugin\Security\HmacRequestVerifier;
+use Fullmetrix\SyliusPlugin\Service\ConfigStore;
+use Fullmetrix\SyliusPlugin\Service\EntityPaginator;
+use Fullmetrix\SyliusPlugin\Service\EntitySerializer;
+use Sylius\Component\Core\Model\CustomerInterface;
+use Sylius\Component\Core\Model\OrderInterface;
+use Sylius\Component\Core\Model\ProductInterface;
+use Sylius\Component\Core\Model\TaxonInterface;
+use Sylius\Component\Promotion\Model\PromotionInterface;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+final class StreamController
+{
+    private const ENTITIES = ['orders', 'customers', 'products', 'categories', 'coupons', 'refunds'];
+
+    public function __construct(
+        private readonly HmacRequestVerifier $verifier,
+        private readonly ConfigStore $config,
+        private readonly EntityPaginator $paginator,
+        private readonly EntitySerializer $serializer,
+        private readonly string $pluginVersion,
+    ) {
+    }
+
+    public function streamAll(Request $request): Response
+    {
+        if (!$this->verifier->verify($request)) {
+            return new JsonResponse(['success' => false, 'error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        $since = $this->parseSince($request);
+        $fromId = max(0, (int) $request->query->get('from_id', 0));
+        $this->markSyncStarted(null === $since ? 'bulk' : 'incremental');
+
+        $response = $this->ndjsonResponse(function () use ($since, $fromId): \Generator {
+            yield $this->encode([
+                'type' => 'meta',
+                'started_at' => $this->iso(),
+                'mode' => 'fast_stream',
+                'version' => $this->pluginVersion,
+                'supports_from_id' => true,
+            ]);
+
+            $totalCount = 0;
+            $counts = [];
+            foreach (self::ENTITIES as $entity) {
+                $count = 0;
+                foreach ($this->paginator->streamKeyset($entity, 1000, $since, $fromId) as $row) {
+                    $rowId = method_exists($row, 'getId') ? (int) $row->getId() : null;
+                    // Un produit s'emet en plusieurs lignes, parent puis variantes :
+                    // le curseur ne peut avancer qu'une fois toutes emises.
+                    $cursor = null === $rowId ? null : ('products' === $entity ? $rowId - 1 : $rowId);
+                    foreach ($this->serializeRows($entity, $row) as $payload) {
+                        yield $this->encode(['type' => $this->lineType($entity), '_cursor' => $cursor, 'data' => $payload]);
+                        ++$count;
+                    }
+                }
+                yield $this->encode(['type' => 'entity_complete', 'entity' => $entity, 'count' => $count]);
+                $counts[$entity] = $count;
+                $totalCount += $count;
+            }
+
+            $this->markSyncCompleted($counts);
+
+            yield $this->encode(['type' => 'done', 'completed_at' => $this->iso(), 'count' => $totalCount]);
+        });
+
+        $this->config->set(ConfigStore::KEY_EXPORT_COUNT, ((int) $this->config->get(ConfigStore::KEY_EXPORT_COUNT, 0)) + 1);
+
+        return $response;
+    }
+
+    public function streamEntity(Request $request, string $entity): Response
+    {
+        if (!$this->verifier->verify($request)) {
+            return new JsonResponse(['success' => false, 'error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
+        }
+        if (null === $this->paginator->resolveClass($entity)) {
+            return new JsonResponse(['success' => false, 'error' => 'unknown_entity'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $since = $this->parseSince($request);
+        $fromId = max(0, (int) $request->query->get('from_id', 0));
+        $this->markSyncStarted(null === $since ? 'bulk' : 'incremental');
+
+        $response = $this->ndjsonResponse(function () use ($entity, $since, $fromId): \Generator {
+            yield $this->encode([
+                'type' => 'meta',
+                'entity' => $entity,
+                'started_at' => $this->iso(),
+                'mode' => 'fast_stream',
+                'version' => $this->pluginVersion,
+                'supports_from_id' => true,
+            ]);
+
+            $count = 0;
+            foreach ($this->paginator->streamKeyset($entity, 1000, $since, $fromId) as $row) {
+                $rowId = method_exists($row, 'getId') ? (int) $row->getId() : null;
+                    // Un produit s'emet en plusieurs lignes, parent puis variantes :
+                    // le curseur ne peut avancer qu'une fois toutes emises.
+                    $cursor = null === $rowId ? null : ('products' === $entity ? $rowId - 1 : $rowId);
+                foreach ($this->serializeRows($entity, $row) as $payload) {
+                    yield $this->encode(['type' => $this->lineType($entity), '_cursor' => $cursor, 'data' => $payload]);
+                    ++$count;
+                }
+            }
+
+            $this->markSyncCompleted([$entity => $count]);
+
+            yield $this->encode(['type' => 'entity_complete', 'entity' => $entity, 'count' => $count]);
+            yield $this->encode(['type' => 'done', 'completed_at' => $this->iso(), 'count' => $count]);
+        });
+
+        $this->config->set(ConfigStore::KEY_EXPORT_COUNT, ((int) $this->config->get(ConfigStore::KEY_EXPORT_COUNT, 0)) + 1);
+
+        return $response;
+    }
+
+    private function markSyncStarted(string $syncType): void
+    {
+        $this->config->set(ConfigStore::KEY_SYNC_IN_PROGRESS, [
+            'started_at' => time(),
+            'type' => $syncType,
+        ]);
+    }
+
+    /**
+     * @param array<string, int> $counts
+     */
+    private function markSyncCompleted(array $counts): void
+    {
+        $previous = $this->config->get(ConfigStore::KEY_LAST_SYNC);
+        $entities = \is_array($previous) && \is_array($previous['entities'] ?? null)
+            ? $previous['entities']
+            : [];
+
+        foreach ($counts as $entity => $count) {
+            $entities[$entity] = (int) $count;
+        }
+
+        $this->config->set(ConfigStore::KEY_LAST_SYNC, [
+            'completed_at' => time(),
+            'entities' => $entities,
+        ]);
+        $this->config->set(ConfigStore::KEY_SYNC_IN_PROGRESS, null);
+    }
+
+    private function ndjsonResponse(callable $generator): StreamedResponse
+    {
+        $response = new StreamedResponse(function () use ($generator) {
+            foreach ($generator() as $line) {
+                echo $line;
+                flush();
+            }
+        });
+        $response->headers->set('Content-Type', 'application/x-ndjson');
+        $response->headers->set('X-Accel-Buffering', 'no');
+        $response->headers->set('Cache-Control', 'no-cache');
+
+        return $response;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function serializeRows(string $entity, object $row): array
+    {
+        return match (true) {
+            ('orders' === $entity) && $row instanceof OrderInterface => [$this->serializer->serializeOrder($row)],
+            ('refunds' === $entity) && $row instanceof OrderInterface => [$this->serializer->serializeRefund($row)],
+            ('customers' === $entity) && $row instanceof CustomerInterface => [$this->serializer->serializeCustomer($row)],
+            ('products' === $entity) && $row instanceof ProductInterface => $this->serializer->serializeProductRows($row),
+            ('categories' === $entity) && $row instanceof TaxonInterface => [$this->serializer->serializeCategory($row)],
+            ('coupons' === $entity) && $row instanceof PromotionInterface => [$this->serializer->serializeCoupon($row)],
+            default => [],
+        };
+    }
+
+    private function lineType(string $entity): string
+    {
+        return match ($entity) {
+            'orders' => 'order',
+            'refunds' => 'refund',
+            'customers' => 'customer',
+            'products' => 'product',
+            'categories' => 'category',
+            'coupons' => 'coupon',
+            default => $entity,
+        };
+    }
+
+    private function parseSince(Request $request): ?string
+    {
+        $since = $request->query->get('since');
+        if (!\is_string($since) || '' === $since) {
+            return null;
+        }
+
+        $syncType = (string) $request->query->get('sync_type', 'full');
+        if ('incremental' !== $syncType) {
+            return null;
+        }
+
+        return $since;
+    }
+
+    private function encode(array $row): string
+    {
+        return (json_encode($row, \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES) ?: '{}') . "\n";
+    }
+
+    private function iso(): string
+    {
+        return (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('Y-m-d\TH:i:s\Z');
+    }
+}

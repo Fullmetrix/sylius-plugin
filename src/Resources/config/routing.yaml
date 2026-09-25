@@ -1,0 +1,51 @@
+fullmetrix_api_export:
+    path: /fullmetrix/api/export
+    controller: Fullmetrix\SyliusPlugin\Controller\Api\ExportController::export
+    methods: [GET]
+
+fullmetrix_api_counts:
+    path: /fullmetrix/api/counts
+    controller: Fullmetrix\SyliusPlugin\Controller\Api\ExportController::counts
+    methods: [GET]
+
+fullmetrix_api_updated:
+    path: /fullmetrix/api/updated
+    controller: Fullmetrix\SyliusPlugin\Controller\Api\ExportController::updated
+    methods: [GET]
+
+fullmetrix_api_stream:
+    path: /fullmetrix/api/stream
+    controller: Fullmetrix\SyliusPlugin\Controller\Api\StreamController::streamAll
+    methods: [GET]
+
+fullmetrix_api_stream_entity:
+    path: /fullmetrix/api/stream/{entity}
+    controller: Fullmetrix\SyliusPlugin\Controller\Api\StreamController::streamEntity
+    methods: [GET]
+    requirements:
+        entity: 'orders|customers|products|categories|coupons|refunds'
+
+fullmetrix_api_command:
+    path: /fullmetrix/api/command
+    controller: Fullmetrix\SyliusPlugin\Controller\Api\CommandController::dispatch
+    methods: [POST]
+
+fullmetrix_shop_recover_cart:
+    path: /fullmetrix/recover-cart
+    controller: Fullmetrix\SyliusPlugin\Controller\Shop\CartRecoveryController::recover
+    methods: [GET]
+
+fullmetrix_admin_connection:
+    path: /admin/fullmetrix
+    controller: Fullmetrix\SyliusPlugin\Controller\Admin\ConnectionController::index
+    methods: [GET, POST]
+
+fullmetrix_admin_disconnect:
+    path: /admin/fullmetrix/disconnect
+    controller: Fullmetrix\SyliusPlugin\Controller\Admin\ConnectionController::disconnect
+    methods: [POST]
+
+fullmetrix_admin_logs_clear:
+    path: /admin/fullmetrix/logs/clear
+    controller: Fullmetrix\SyliusPlugin\Controller\Admin\DashboardController::clearLogs
+    methods: [POST]

@@ -1,0 +1,9 @@
+<div class="field">
+    <div class="ui checkbox">
+        <input type="checkbox" id="_fullmetrix_consent" name="_fullmetrix_consent" value="1">
+        <label for="_fullmetrix_consent">{{ label|default('I consent to receive marketing emails.') }}</label>
+    </div>
+    {% for channel in channels|default(['email']) %}
+        <input type="hidden" name="_fullmetrix_consent_channels[]" value="{{ channel }}">
+    {% endfor %}
+</div>

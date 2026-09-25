@@ -1,0 +1,64 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+        bind:
+            string $apiBase: '%fullmetrix.api_base%'
+            string $webhookEndpoint: '%fullmetrix.webhook_endpoint%'
+            string $eventsEndpoint: '%fullmetrix.events_endpoint%'
+            string $consentEndpoint: '%fullmetrix.consent_endpoint%'
+            string $trackerOrigin: '%fullmetrix.tracker_origin%'
+            int $connectTimeoutMs: '%fullmetrix.connect_timeout_ms%'
+            int $totalTimeoutMs: '%fullmetrix.total_timeout_ms%'
+            string $pluginVersion: !php/const Fullmetrix\SyliusPlugin\FullmetrixPlugin::VERSION
+
+    Fullmetrix\SyliusPlugin\Service\:
+        resource: '../../Service/*'
+        exclude:
+            - '../../Service/CouponCommandHandler.php'
+
+    Fullmetrix\SyliusPlugin\Service\CouponCommandHandler:
+        arguments:
+            $em: '@doctrine.orm.entity_manager'
+            $promotionFactory: '@sylius.factory.promotion'
+            $couponFactory: '@sylius.factory.promotion_coupon'
+            $promotionActionFactory: '@sylius.factory.promotion_action'
+            $promotionRuleFactory: '@sylius.factory.promotion_rule'
+
+    Fullmetrix\SyliusPlugin\EventSubscriber\:
+        resource: '../../EventSubscriber/*'
+
+    Fullmetrix\SyliusPlugin\Menu\AdminMenuListener:
+        tags:
+            - name: kernel.event_listener
+              event: sylius.menu.admin.main
+              method: addFullmetrixItem
+
+    Fullmetrix\SyliusPlugin\Controller\:
+        resource: '../../Controller/*'
+        exclude:
+            - '../../Controller/Shop/CartRecoveryController.php'
+        public: true
+        tags: ['controller.service_arguments']
+
+    Fullmetrix\SyliusPlugin\Controller\Shop\CartRecoveryController:
+        arguments:
+            $config: '@Fullmetrix\SyliusPlugin\Service\ConfigStore'
+            $linkResolver: '@Fullmetrix\SyliusPlugin\Service\CartLinkResolver'
+            $cartContext: '@sylius.context.cart'
+            $productVariantRepository: '@sylius.repository.product_variant'
+            $productRepository: '@sylius.repository.product'
+            $promotionCouponRepository: '@sylius.repository.promotion_coupon'
+            $orderItemFactory: '@sylius.factory.order_item'
+            $itemQuantityModifier: '@Sylius\Component\Order\Modifier\OrderItemQuantityModifierInterface'
+            $orderModifier: '@sylius.modifier.order'
+            $orderProcessor: '@sylius.order_processing.order_processor'
+            $couponEligibility: '@sylius.checker.promotion_coupon_eligibility'
+            $em: '@doctrine.orm.entity_manager'
+            $urls: '@router'
+        public: true
+        tags: ['controller.service_arguments']
+
+    Fullmetrix\SyliusPlugin\Security\:
+        resource: '../../Security/*'

@@ -1,0 +1,11 @@
+{% set ctx = hookable_metadata.context %}
+
+{% include '@FullmetrixPlugin/admin/_panel.html.twig' with {
+    registered: ctx.registered ?? false,
+    connection_code: ctx.connection_code ?? '',
+    last_sync: ctx.last_sync ?? null,
+    sync_in_progress: ctx.sync_in_progress ?? false,
+    error: ctx.error ?? null,
+    submitted_code: ctx.submitted_code ?? '',
+    logs: ctx.logs ?? [],
+} only %}
