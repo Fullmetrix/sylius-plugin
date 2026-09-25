@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.5.1",
   "minimumRequired": "1.0.0",
   "changelog": "Le plugin ne peut plus bloquer la boutique : une table manquante ou une panne de Fullmetrix le met en veille sans erreur, le consentement part après la validation de la commande, et le plugin n'enregistre plus jamais les changements en cours de la boutique. Les tables sont créées par une migration Doctrine, jouée après toutes celles de la boutique. Après la mise à jour, lancez bin/console cache:clear (obligatoire) puis doctrine:migrations:migrate. Avec sylius_core.prepend_doctrine_migrations: false, déclarez la migration du plugin ou créez les tables avec doctrine:schema:update (voir le README). Le réglage « traceur désactivé » de Fullmetrix est désormais respecté : les boutiques qui l'ont coupé ne l'ont plus sur leurs pages."
 }
