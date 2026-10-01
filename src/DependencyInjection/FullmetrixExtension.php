@@ -60,6 +60,7 @@ final class FullmetrixExtension extends Extension implements PrependExtensionInt
         $container->setParameter('fullmetrix.tracker_origin', $config['tracker_origin']);
         $container->setParameter('fullmetrix.connect_timeout_ms', $config['connect_timeout_ms']);
         $container->setParameter('fullmetrix.total_timeout_ms', $config['total_timeout_ms']);
+        $container->setParameter('fullmetrix.signature_v1', $config['signature_v1']);
 
         $loader = new YamlFileLoader(
             $container,

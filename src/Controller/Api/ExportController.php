@@ -32,8 +32,9 @@ final class ExportController
 
     public function export(Request $request): Response
     {
-        if (!$this->verifier->verify($request)) {
-            return $this->unauthorized();
+        $denied = $this->verifier->authorize($request, 'export');
+        if (null !== $denied) {
+            return $denied;
         }
 
         $type = (string) $request->query->get('type', 'orders');
@@ -78,8 +79,9 @@ final class ExportController
 
     public function counts(Request $request): Response
     {
-        if (!$this->verifier->verify($request)) {
-            return $this->unauthorized();
+        $denied = $this->verifier->authorize($request, 'counts');
+        if (null !== $denied) {
+            return $denied;
         }
 
         return new JsonResponse([
@@ -97,8 +99,9 @@ final class ExportController
 
     public function updated(Request $request): Response
     {
-        if (!$this->verifier->verify($request)) {
-            return $this->unauthorized();
+        $denied = $this->verifier->authorize($request, 'updated');
+        if (null !== $denied) {
+            return $denied;
         }
 
         $type = (string) $request->query->get('type', 'orders');
@@ -140,8 +143,4 @@ final class ExportController
         ];
     }
 
-    private function unauthorized(): JsonResponse
-    {
-        return new JsonResponse(['success' => false, 'error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
-    }
 }

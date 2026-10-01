@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Fullmetrix\SyliusPlugin;
 
 use Fullmetrix\SyliusPlugin\DependencyInjection\Compiler\MigrationOrderPass;
+use Fullmetrix\SyliusPlugin\DependencyInjection\Compiler\SyliusServicePass;
 use Fullmetrix\SyliusPlugin\DependencyInjection\FullmetrixExtension;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Extension\ExtensionInterface;
@@ -12,7 +13,7 @@ use Symfony\Component\HttpKernel\Bundle\Bundle;
 
 final class FullmetrixPlugin extends Bundle
 {
-    public const VERSION = '1.5.1';
+    public const VERSION = '1.6.1';
 
     private ?FullmetrixExtension $fullmetrixExtension = null;
 
@@ -26,6 +27,7 @@ final class FullmetrixPlugin extends Bundle
         parent::build($container);
 
         $container->addCompilerPass(new MigrationOrderPass());
+        $container->addCompilerPass(new SyliusServicePass());
     }
 
     public function getContainerExtension(): ExtensionInterface

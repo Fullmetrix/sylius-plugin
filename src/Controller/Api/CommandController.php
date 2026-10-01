@@ -22,8 +22,9 @@ final class CommandController
 
     public function dispatch(Request $request): Response
     {
-        if (!$this->verifier->verify($request)) {
-            return new JsonResponse(['success' => false, 'error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
+        $denied = $this->verifier->authorize($request, 'command', true);
+        if (null !== $denied) {
+            return $denied;
         }
 
         $body = json_decode((string) $request->getContent(), true);

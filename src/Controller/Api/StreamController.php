@@ -33,8 +33,9 @@ final class StreamController
 
     public function streamAll(Request $request): Response
     {
-        if (!$this->verifier->verify($request)) {
-            return new JsonResponse(['success' => false, 'error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
+        $denied = $this->verifier->authorize($request, 'stream');
+        if (null !== $denied) {
+            return $denied;
         }
 
         $since = $this->parseSince($request);
@@ -54,15 +55,21 @@ final class StreamController
             $counts = [];
             foreach (self::ENTITIES as $entity) {
                 $count = 0;
-                foreach ($this->paginator->streamKeyset($entity, 1000, $since, $fromId) as $row) {
-                    $rowId = method_exists($row, 'getId') ? (int) $row->getId() : null;
-                    // Un produit s'emet en plusieurs lignes, parent puis variantes :
-                    // le curseur ne peut avancer qu'une fois toutes emises.
-                    $cursor = null === $rowId ? null : ('products' === $entity ? $rowId - 1 : $rowId);
-                    foreach ($this->serializeRows($entity, $row) as $payload) {
-                        yield $this->encode(['type' => $this->lineType($entity), '_cursor' => $cursor, 'data' => $payload]);
-                        ++$count;
+                $lastId = $fromId;
+                try {
+                    foreach ($this->paginator->streamKeyset($entity, 1000, $since, $fromId) as $row) {
+                        $rowId = method_exists($row, 'getId') ? (int) $row->getId() : null;
+                        $cursor = null === $rowId ? null : ('products' === $entity ? $rowId - 1 : $rowId);
+                        foreach ($this->serializeRows($entity, $row) as $payload) {
+                            yield $this->encode(['type' => $this->lineType($entity), '_cursor' => $cursor, 'data' => $payload]);
+                            ++$count;
+                        }
+                        $lastId = $rowId ?? $lastId;
                     }
+                } catch (\Throwable $e) {
+                    yield $this->fatal($entity, $lastId, $count, $e);
+
+                    return;
                 }
                 yield $this->encode(['type' => 'entity_complete', 'entity' => $entity, 'count' => $count]);
                 $counts[$entity] = $count;
@@ -81,8 +88,9 @@ final class StreamController
 
     public function streamEntity(Request $request, string $entity): Response
     {
-        if (!$this->verifier->verify($request)) {
-            return new JsonResponse(['success' => false, 'error' => 'unauthorized'], Response::HTTP_UNAUTHORIZED);
+        $denied = $this->verifier->authorize($request, 'stream/' . $entity);
+        if (null !== $denied) {
+            return $denied;
         }
         if (null === $this->paginator->resolveClass($entity)) {
             return new JsonResponse(['success' => false, 'error' => 'unknown_entity'], Response::HTTP_BAD_REQUEST);
@@ -103,15 +111,21 @@ final class StreamController
             ]);
 
             $count = 0;
-            foreach ($this->paginator->streamKeyset($entity, 1000, $since, $fromId) as $row) {
-                $rowId = method_exists($row, 'getId') ? (int) $row->getId() : null;
-                    // Un produit s'emet en plusieurs lignes, parent puis variantes :
-                    // le curseur ne peut avancer qu'une fois toutes emises.
+            $lastId = $fromId;
+            try {
+                foreach ($this->paginator->streamKeyset($entity, 1000, $since, $fromId) as $row) {
+                    $rowId = method_exists($row, 'getId') ? (int) $row->getId() : null;
                     $cursor = null === $rowId ? null : ('products' === $entity ? $rowId - 1 : $rowId);
-                foreach ($this->serializeRows($entity, $row) as $payload) {
-                    yield $this->encode(['type' => $this->lineType($entity), '_cursor' => $cursor, 'data' => $payload]);
-                    ++$count;
+                    foreach ($this->serializeRows($entity, $row) as $payload) {
+                        yield $this->encode(['type' => $this->lineType($entity), '_cursor' => $cursor, 'data' => $payload]);
+                        ++$count;
+                    }
+                    $lastId = $rowId ?? $lastId;
                 }
+            } catch (\Throwable $e) {
+                yield $this->fatal($entity, $lastId, $count, $e);
+
+                return;
             }
 
             $this->markSyncCompleted([$entity => $count]);
@@ -209,6 +223,18 @@ final class StreamController
         }
 
         return $since;
+    }
+
+    private function fatal(string $entity, int $lastId, int $sent, \Throwable $e): string
+    {
+        return $this->encode([
+            'type' => 'fatal',
+            'entity' => $entity,
+            'reason' => 'exception',
+            'error' => (new \ReflectionClass($e))->getShortName(),
+            'last_id' => $lastId,
+            'sent' => $sent,
+        ]);
     }
 
     private function encode(array $row): string

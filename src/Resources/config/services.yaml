@@ -11,6 +11,7 @@ services:
             string $trackerOrigin: '%fullmetrix.tracker_origin%'
             int $connectTimeoutMs: '%fullmetrix.connect_timeout_ms%'
             int $totalTimeoutMs: '%fullmetrix.total_timeout_ms%'
+            bool $signatureV1: '%fullmetrix.signature_v1%'
             string $pluginVersion: !php/const Fullmetrix\SyliusPlugin\FullmetrixPlugin::VERSION
 
     Fullmetrix\SyliusPlugin\Service\:
@@ -25,6 +26,9 @@ services:
             $couponFactory: '@sylius.factory.promotion_coupon'
             $promotionActionFactory: '@sylius.factory.promotion_action'
             $promotionRuleFactory: '@sylius.factory.promotion_rule'
+            $channelRepository: '@sylius.repository.channel'
+            $promotionRepository: '@sylius.repository.promotion'
+            $couponRepository: '@sylius.repository.promotion_coupon'
 
     Fullmetrix\SyliusPlugin\EventSubscriber\:
         resource: '../../EventSubscriber/*'
@@ -52,9 +56,10 @@ services:
             $promotionCouponRepository: '@sylius.repository.promotion_coupon'
             $orderItemFactory: '@sylius.factory.order_item'
             $itemQuantityModifier: '@Sylius\Component\Order\Modifier\OrderItemQuantityModifierInterface'
-            $orderModifier: '@sylius.modifier.order'
+            $orderModifier: '@fullmetrix.sylius.order_modifier'
             $orderProcessor: '@sylius.order_processing.order_processor'
-            $couponEligibility: '@sylius.checker.promotion_coupon_eligibility'
+            $couponEligibility: '@fullmetrix.sylius.promotion_coupon_eligibility_checker'
+            $promotionEligibility: '@fullmetrix.sylius.promotion_eligibility_checker'
             $em: '@doctrine.orm.entity_manager'
             $urls: '@router'
         public: true

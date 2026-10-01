@@ -7,16 +7,19 @@ namespace Fullmetrix\SyliusPlugin\Controller\Shop;
 use Doctrine\ORM\EntityManagerInterface;
 use Fullmetrix\SyliusPlugin\Service\ConfigStore;
 use Fullmetrix\SyliusPlugin\Service\CartLinkResolver;
+use Sylius\Component\Core\Model\ChannelInterface;
 use Sylius\Component\Core\Model\OrderInterface;
 use Sylius\Component\Core\Model\OrderItemInterface;
 use Sylius\Component\Core\Model\ProductInterface;
 use Sylius\Component\Core\Model\ProductVariantInterface;
 use Sylius\Component\Core\Model\PromotionCouponInterface;
+use Sylius\Component\Core\Model\PromotionInterface;
 use Sylius\Component\Order\Context\CartContextInterface;
 use Sylius\Component\Order\Modifier\OrderItemQuantityModifierInterface;
 use Sylius\Component\Order\Modifier\OrderModifierInterface;
 use Sylius\Component\Order\Processor\OrderProcessorInterface;
 use Sylius\Component\Promotion\Checker\Eligibility\PromotionCouponEligibilityCheckerInterface;
+use Sylius\Component\Promotion\Checker\Eligibility\PromotionEligibilityCheckerInterface;
 use Sylius\Component\Resource\Factory\FactoryInterface;
 use Sylius\Component\Resource\Repository\RepositoryInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -43,6 +46,7 @@ final class CartRecoveryController
         private readonly OrderModifierInterface $orderModifier,
         private readonly OrderProcessorInterface $orderProcessor,
         private readonly PromotionCouponEligibilityCheckerInterface $couponEligibility,
+        private readonly PromotionEligibilityCheckerInterface $promotionEligibility,
         private readonly EntityManagerInterface $em,
         private readonly UrlGeneratorInterface $urls,
     ) {
@@ -60,6 +64,19 @@ final class CartRecoveryController
             return $this->redirectTo('cart', $request);
         }
 
+        try {
+            $this->rebuild($cart, $payload);
+        } catch (\Throwable) {
+            return $this->redirectTo('cart', $request);
+        }
+
+        $target = ('checkout' === $payload['target']) ? 'checkout' : 'cart';
+
+        return $this->redirectTo($target, $request);
+    }
+
+    private function rebuild(OrderInterface $cart, array $payload): void
+    {
         $existing = [];
         foreach ($cart->getItems() as $item) {
             if (null !== $item->getVariant()) {
@@ -67,19 +84,16 @@ final class CartRecoveryController
             }
         }
 
-        $items = \array_slice($payload['items'], 0, self::MAX_ITEMS);
         $added = false;
-
-        foreach ($items as $item) {
+        foreach (\array_slice($payload['items'], 0, self::MAX_ITEMS) as $item) {
             $variant = $this->findVariant($item);
-            if (!$variant instanceof ProductVariantInterface) {
+            if (!$variant instanceof ProductVariantInterface || isset($existing[(string) $variant->getId()])) {
                 continue;
             }
-            if (isset($existing[(string) $variant->getId()])) {
-                continue;
-            }
-
             $quantity = max(1, (int) ($item['q'] ?? 1));
+            if (!$this->purchasable($variant, $cart->getChannel(), $quantity)) {
+                continue;
+            }
 
             /** @var OrderItemInterface $orderItem */
             $orderItem = $this->orderItemFactory->createNew();
@@ -90,17 +104,30 @@ final class CartRecoveryController
             $added = true;
         }
 
-        $couponApplied = $this->applyFirstCoupon($cart, $payload['c']);
-
-        if ($added || $couponApplied) {
+        if ($added) {
             $this->orderProcessor->process($cart);
+        }
+        $couponApplied = $this->applyFirstCoupon($cart, $payload['c']);
+        if ($couponApplied) {
+            $this->orderProcessor->process($cart);
+        }
+        if ($added || $couponApplied) {
             $this->em->persist($cart);
             $this->em->flush();
         }
+    }
 
-        $target = ('checkout' === $payload['target']) ? 'checkout' : 'cart';
+    private function purchasable(ProductVariantInterface $variant, mixed $channel, int $quantity): bool
+    {
+        $product = $variant->getProduct();
 
-        return $this->redirectTo($target, $request);
+        return $channel instanceof ChannelInterface
+            && $variant->isEnabled()
+            && $product instanceof ProductInterface
+            && $product->isEnabled()
+            && $product->hasChannel($channel)
+            && null !== $variant->getChannelPricingForChannel($channel)
+            && (!$variant->isTracked() || (int) $variant->getOnHand() - (int) $variant->getOnHold() >= $quantity);
     }
 
     /**
@@ -160,11 +187,21 @@ final class CartRecoveryController
             if (!$coupon instanceof PromotionCouponInterface) {
                 continue;
             }
+            $promotion = $coupon->getPromotion();
+            $channel = $cart->getChannel();
+            if (!$promotion instanceof PromotionInterface || null === $channel || !$promotion->hasChannel($channel)) {
+                continue;
+            }
             if (!$this->couponEligibility->isEligible($cart, $coupon)) {
                 continue;
             }
 
             $cart->setPromotionCoupon($coupon);
+            if (!$this->promotionEligibility->isEligible($cart, $promotion)) {
+                $cart->setPromotionCoupon(null);
+
+                continue;
+            }
 
             return true;
         }

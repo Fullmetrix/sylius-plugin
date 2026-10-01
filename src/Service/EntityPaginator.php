@@ -116,7 +116,7 @@ final class EntityPaginator
             ->select('e.id', 'e.updatedAt')
             ->where('e.updatedAt >= :cutoff')
             ->setParameter('cutoff', $cutoff)
-            ->orderBy('e.updatedAt', 'DESC')
+            ->orderBy('e.id', 'ASC')
             ->setMaxResults(min(500_000, $limit))
             ->setFirstResult($offset);
 

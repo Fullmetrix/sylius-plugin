@@ -1,5 +1,5 @@
 {
-  "version": "1.5.1",
+  "version": "1.6.1",
   "minimumRequired": "1.0.0",
-  "changelog": "Le plugin ne peut plus bloquer la boutique : une table manquante ou une panne de Fullmetrix le met en veille sans erreur, le consentement part après la validation de la commande, et le plugin n'enregistre plus jamais les changements en cours de la boutique. Les tables sont créées par une migration Doctrine, jouée après toutes celles de la boutique. Après la mise à jour, lancez bin/console cache:clear (obligatoire) puis doctrine:migrations:migrate. Avec sylius_core.prepend_doctrine_migrations: false, déclarez la migration du plugin ou créez les tables avec doctrine:schema:update (voir le README). Le réglage « traceur désactivé » de Fullmetrix est désormais respecté : les boutiques qui l'ont coupé ne l'ont plus sur leurs pages."
+  "changelog": "Les appels de Fullmetrix utilisent une signature plus sûre, liée à la requête exacte et impossible à rejouer pour les commandes, et l'ancienne signature est refusée. Le flux d'export s'arrête proprement sur une erreur au lieu de laisser Fullmetrix croire la synchronisation terminée. Les codes promo créés par Fullmetrix sont rattachés aux canaux de la boutique et leurs valeurs sont contrôlées. Le lien de relance panier n'ajoute plus que des produits vendables et un code réellement applicable. Le plugin s'installe aussi sur Sylius 1.13. Après la mise à jour, lancez bin/console cache:clear."
 }

@@ -5,20 +5,20 @@ declare(strict_types=1);
 namespace Fullmetrix\SyliusPlugin\Service;
 
 use Doctrine\ORM\EntityManagerInterface;
+use Sylius\Component\Core\Model\ChannelInterface;
 use Sylius\Component\Core\Model\PromotionInterface;
 use Sylius\Component\Promotion\Factory\PromotionCouponFactoryInterface;
 use Sylius\Component\Promotion\Model\PromotionActionInterface;
 use Sylius\Component\Promotion\Model\PromotionCouponInterface;
 use Sylius\Component\Promotion\Model\PromotionRuleInterface;
 use Sylius\Component\Resource\Factory\FactoryInterface;
+use Sylius\Component\Resource\Repository\RepositoryInterface;
 
 final class CouponCommandHandler
 {
     public const ACTION_CREATE = 'coupon.create';
 
-    public const ACTION_UPDATE = 'coupon.update';
-
-    public const ACTION_DELETE = 'coupon.delete';
+    private const CODE_PATTERN = '/^[A-Za-z0-9_-]{1,64}$/';
 
     public function __construct(
         private readonly EntityManagerInterface $em,
@@ -26,6 +26,9 @@ final class CouponCommandHandler
         private readonly PromotionCouponFactoryInterface $couponFactory,
         private readonly FactoryInterface $promotionActionFactory,
         private readonly FactoryInterface $promotionRuleFactory,
+        private readonly RepositoryInterface $channelRepository,
+        private readonly ?RepositoryInterface $promotionRepository = null,
+        private readonly ?RepositoryInterface $couponRepository = null,
     ) {
     }
 
@@ -38,17 +41,32 @@ final class CouponCommandHandler
     {
         return match ($action) {
             self::ACTION_CREATE => $this->create($payload),
-            self::ACTION_UPDATE => $this->update($payload),
-            self::ACTION_DELETE => $this->delete($payload),
             default => ['success' => false, 'error' => 'unknown_action'],
         };
     }
 
     private function create(array $payload): array
     {
-        $code = (string) ($payload['code'] ?? '');
-        if ('' === $code) {
-            return ['success' => false, 'error' => 'missing_code'];
+        $code = $payload['code'] ?? null;
+        if (!\is_string($code) || 1 !== preg_match(self::CODE_PATTERN, $code)) {
+            return ['success' => false, 'error' => 'invalid_code'];
+        }
+        $invalid = $this->invalidPayload($payload);
+        if (null !== $invalid) {
+            return ['success' => false, 'error' => $invalid];
+        }
+        if ($this->codeTaken($code)) {
+            return ['success' => false, 'error' => 'code_already_exists'];
+        }
+
+        $channels = [];
+        foreach ($this->channelRepository->findBy(['enabled' => true]) as $channel) {
+            if ($channel instanceof ChannelInterface && null !== $channel->getCode()) {
+                $channels[] = $channel;
+            }
+        }
+        if ([] === $channels) {
+            return ['success' => false, 'error' => 'no_channel'];
         }
 
         /** @var PromotionInterface $promotion */
@@ -59,6 +77,9 @@ final class CouponCommandHandler
         $promotion->setCouponBased(true);
         $promotion->setExclusive((bool) ($payload['exclusive'] ?? false));
         $promotion->setPriority((int) ($payload['priority'] ?? 0));
+        foreach ($channels as $channel) {
+            $promotion->addChannel($channel);
+        }
 
         if (isset($payload['usageLimit'])) {
             $promotion->setUsageLimit((int) $payload['usageLimit']);
@@ -70,8 +91,8 @@ final class CouponCommandHandler
             $promotion->setEndsAt(new \DateTime((string) $payload['expiresAt']));
         }
 
-        $this->attachAction($promotion, $payload);
-        $this->attachRules($promotion, $payload);
+        $this->attachAction($promotion, $payload, $channels);
+        $this->attachRules($promotion, $payload, $channels);
 
         /** @var PromotionCouponInterface $coupon */
         $coupon = $this->couponFactory->createForPromotion($promotion);
@@ -95,53 +116,48 @@ final class CouponCommandHandler
         return ['success' => true, 'data' => ['id' => $promotion->getId(), 'code' => $code]];
     }
 
-    private function update(array $payload): array
+    private function codeTaken(string $code): bool
     {
-        $id = $payload['id'] ?? null;
-        if (null === $id) {
-            return ['success' => false, 'error' => 'missing_id'];
+        foreach ([$this->promotionRepository, $this->couponRepository] as $repository) {
+            if (null !== $repository && null !== $repository->findOneBy(['code' => $code])) {
+                return true;
+            }
         }
 
-        $promotion = $this->em->getRepository(PromotionInterface::class)->find($id);
-        if (!$promotion instanceof PromotionInterface) {
-            return ['success' => false, 'error' => 'not_found'];
-        }
-
-        if (isset($payload['description'])) {
-            $promotion->setDescription((string) $payload['description']);
-            $promotion->setName((string) $payload['description']);
-        }
-        if (\array_key_exists('usageLimit', $payload)) {
-            $promotion->setUsageLimit(null === $payload['usageLimit'] ? null : (int) $payload['usageLimit']);
-        }
-        if (isset($payload['expiresAt'])) {
-            $promotion->setEndsAt(empty($payload['expiresAt']) ? null : new \DateTime((string) $payload['expiresAt']));
-        }
-
-        $this->em->flush();
-
-        return ['success' => true, 'data' => ['id' => $promotion->getId(), 'code' => $promotion->getCode()]];
+        return false;
     }
 
-    private function delete(array $payload): array
+    private function invalidPayload(array $payload): ?string
     {
-        $id = $payload['id'] ?? null;
-        if (null === $id) {
-            return ['success' => false, 'error' => 'missing_id'];
+        foreach (['amount', 'minimumAmount'] as $field) {
+            if (!\array_key_exists($field, $payload) || ('minimumAmount' === $field && null === $payload[$field])) {
+                continue;
+            }
+            if (!is_numeric($payload[$field]) || !is_finite((float) $payload[$field]) || (float) $payload[$field] < 0) {
+                return 'invalid_' . $field;
+            }
+        }
+        if ('percentage' === ($payload['discountType'] ?? 'percentage') && (float) ($payload['amount'] ?? 0) > 100) {
+            return 'invalid_amount';
+        }
+        foreach (['usageLimit', 'usageLimitPerUser'] as $limit) {
+            if (\array_key_exists($limit, $payload) && (!is_numeric($payload[$limit]) || (int) $payload[$limit] < 1)) {
+                return 'invalid_' . $limit;
+            }
+        }
+        foreach (['startsAt', 'expiresAt'] as $date) {
+            if (!empty($payload[$date]) && (!\is_string($payload[$date]) || false === strtotime($payload[$date]))) {
+                return 'invalid_' . $date;
+            }
+        }
+        if (!empty($payload['giftProduct']) || !empty($payload['productIds'])) {
+            return 'unsupported_gift_product';
         }
 
-        $promotion = $this->em->getRepository(PromotionInterface::class)->find($id);
-        if (!$promotion instanceof PromotionInterface) {
-            return ['success' => false, 'error' => 'not_found'];
-        }
-
-        $this->em->remove($promotion);
-        $this->em->flush();
-
-        return ['success' => true, 'data' => ['id' => $id]];
+        return null;
     }
 
-    private function attachAction(PromotionInterface $promotion, array $payload): void
+    private function attachAction(PromotionInterface $promotion, array $payload, array $channels): void
     {
         $type = (string) ($payload['discountType'] ?? 'percentage');
         $amount = (float) ($payload['amount'] ?? 0);
@@ -157,23 +173,30 @@ final class CouponCommandHandler
             $action->setConfiguration(['percentage' => 1.0]);
         } else {
             $action->setType('order_fixed_discount');
-            $cents = (int) round($amount * 100);
-            $action->setConfiguration(['DEFAULT' => ['amount' => $cents]]);
+            $action->setConfiguration($this->perChannel($channels, (int) round($amount * 100)));
         }
 
         $promotion->addAction($action);
     }
 
-    private function attachRules(PromotionInterface $promotion, array $payload): void
+    private function attachRules(PromotionInterface $promotion, array $payload, array $channels): void
     {
         if (!empty($payload['minimumAmount'])) {
             /** @var PromotionRuleInterface $rule */
             $rule = $this->promotionRuleFactory->createNew();
             $rule->setType('item_total');
-            $rule->setConfiguration([
-                'DEFAULT' => ['amount' => (int) round(((float) $payload['minimumAmount']) * 100)],
-            ]);
+            $rule->setConfiguration($this->perChannel($channels, (int) round(((float) $payload['minimumAmount']) * 100)));
             $promotion->addRule($rule);
         }
+    }
+
+    private function perChannel(array $channels, int $cents): array
+    {
+        $configuration = [];
+        foreach ($channels as $channel) {
+            $configuration[(string) $channel->getCode()] = ['amount' => $cents];
+        }
+
+        return $configuration;
     }
 }

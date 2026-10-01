@@ -35,6 +35,8 @@ final class ConfigStore implements ResetInterface
 
     public const KEY_DELIVERY_FAILURES = 'delivery_failures';
 
+    public const KEY_COMMAND_NONCES = 'command_nonces';
+
     private const SYNC_STALE_AFTER_SECONDS = 600;
 
     /** @var array<string, mixed>|null */

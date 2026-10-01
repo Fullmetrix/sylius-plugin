@@ -37,6 +37,9 @@ final class Configuration implements ConfigurationInterface
                 ->integerNode('total_timeout_ms')
                     ->defaultValue(800)
                 ->end()
+                ->booleanNode('signature_v1')
+                    ->defaultFalse()
+                ->end()
             ->end()
         ;
 
