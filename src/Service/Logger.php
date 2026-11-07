@@ -23,6 +23,8 @@ final class Logger
 
     public const TYPE_COMMAND = 'command';
 
+    public const TYPE_TRACKER = 'tracker';
+
     private const MAX_ENTRIES = 30;
 
     private const MAX_MESSAGE_LEN = 256;

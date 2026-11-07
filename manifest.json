@@ -1,5 +1,5 @@
 {
-  "version": "1.6.1",
+  "version": "1.7.0",
   "minimumRequired": "1.0.0",
-  "changelog": "Les appels de Fullmetrix utilisent une signature plus sûre, liée à la requête exacte et impossible à rejouer pour les commandes, et l'ancienne signature est refusée. Le flux d'export s'arrête proprement sur une erreur au lieu de laisser Fullmetrix croire la synchronisation terminée. Les codes promo créés par Fullmetrix sont rattachés aux canaux de la boutique et leurs valeurs sont contrôlées. Le lien de relance panier n'ajoute plus que des produits vendables et un code réellement applicable. Le plugin s'installe aussi sur Sylius 1.13. Après la mise à jour, lancez bin/console cache:clear."
+  "changelog": "Le script de suivi peut être servi depuis le domaine de la boutique : une tâche planifiée (bin/console fullmetrix:tracker:refresh, toutes les 10 minutes par cron) télécharge le script vérifié dans public/media/fullmetrix/ et la boutique le sert elle-même. Sans cette tâche, ou si le dossier n'est pas inscriptible, le script reste chargé depuis Fullmetrix comme avant. Fullmetrix peut revenir à l'adresse distante à tout moment. La page de remerciement indique au script le numéro et le montant de la commande, et chaque page indique le panier en cours. Le plugin repose lui-même le cookie de visiteur de Fullmetrix depuis le domaine de la boutique (adresse /_fm/keep), pour qu'il tienne sur Safari ; Fullmetrix peut couper ce mécanisme à distance. Après la mise à jour, lancez bin/console cache:clear."
 }

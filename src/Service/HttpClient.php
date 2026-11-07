@@ -52,16 +52,22 @@ final class HttpClient
      *
      * @return array{status: int, body: string, error: ?string, unreachable: bool}
      */
-    public function get(string $url, array $headers, bool $fireAndForget = false, ?int $maxTotalMs = null): array
-    {
+    public function get(
+        string $url,
+        array $headers,
+        bool $fireAndForget = false,
+        ?int $maxTotalMs = null,
+        ?int $connectTimeoutMs = null,
+        ?int $totalTimeoutMs = null,
+    ): array {
         $headerLines = [];
         foreach ($headers as $name => $value) {
             $headerLines[] = $name . ': ' . $value;
         }
 
         [$connect, $total] = $this->timeouts(
-            $this->connectTimeoutMs,
-            max($this->totalTimeoutMs, 2000),
+            $connectTimeoutMs ?? $this->connectTimeoutMs,
+            $totalTimeoutMs ?? max($this->totalTimeoutMs, 2000),
             $fireAndForget,
             $maxTotalMs,
         );

@@ -19,6 +19,16 @@ services:
         exclude:
             - '../../Service/CouponCommandHandler.php'
 
+    Fullmetrix\SyliusPlugin\Service\LocalTrackerRefresher:
+        arguments:
+            $directory: '%fullmetrix.tracker_local_directory%'
+            $publicPath: '%fullmetrix.tracker_local_public_path%'
+            $baseUrl: '%fullmetrix.tracker_local_base_url%'
+            $channels: '@sylius.repository.channel'
+
+    Fullmetrix\SyliusPlugin\Command\:
+        resource: '../../Command/*'
+
     Fullmetrix\SyliusPlugin\Service\CouponCommandHandler:
         arguments:
             $em: '@doctrine.orm.entity_manager'
@@ -32,6 +42,11 @@ services:
 
     Fullmetrix\SyliusPlugin\EventSubscriber\:
         resource: '../../EventSubscriber/*'
+
+    Fullmetrix\SyliusPlugin\EventSubscriber\TrackerInjectionSubscriber:
+        arguments:
+            $entityManager: '@doctrine.orm.entity_manager'
+            $orderClass: '%sylius.model.order.class%'
 
     Fullmetrix\SyliusPlugin\Menu\AdminMenuListener:
         tags:

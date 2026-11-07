@@ -12,6 +12,7 @@ final class ConnectionManager
         private readonly ConfigStore $config,
         private readonly ApiClient $api,
         private readonly Logger $logger,
+        private readonly ?LocalTrackerRefresher $localTracker = null,
     ) {
     }
 
@@ -55,6 +56,7 @@ final class ConnectionManager
         if (!$stored) {
             return ['success' => false, 'error' => 'storage_failed'];
         }
+        $this->config->set(ConfigStore::KEY_SITE_URL, $siteUrl);
 
         $this->logger->log(Logger::TYPE_REGISTERED, 'Connected to Fullmetrix', ['code' => $code]);
 
@@ -67,6 +69,10 @@ final class ConnectionManager
         $this->config->set(ConfigStore::KEY_REGISTERED, false);
         $this->config->set(ConfigStore::KEY_WEBHOOKS_ENABLED, false);
         $this->config->delete(ConfigStore::KEY_CONNECTION_SECRET);
+        try {
+            $this->localTracker?->remove();
+        } catch (\Throwable) {
+        }
         $this->logger->log(Logger::TYPE_DISCONNECTED, 'Disconnected from Fullmetrix', ['code' => $code]);
     }
 }

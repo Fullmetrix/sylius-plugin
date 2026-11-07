@@ -34,6 +34,18 @@ bin/console cache:clear
 
 In the admin, go to Marketing, then Fullmetrix, and enter the connection code shown in Fullmetrix.
 
+## Tracking script served by the store
+
+Add this line to the crontab of the user that runs the store:
+
+```bash
+*/10 * * * * cd /path/to/store && bin/console fullmetrix:tracker:refresh --env=prod > /dev/null 2>&1
+```
+
+The command downloads the verified Fullmetrix script into `public/media/fullmetrix/` and the store serves it from its own domain. Without this line, or if the folder is not writable, the script keeps loading from Fullmetrix.
+
+Before uninstalling the plugin, run `bin/console fullmetrix:tracker:refresh --remove` and delete the cron line.
+
 ## Support
 
 - support@fullmetrix.com

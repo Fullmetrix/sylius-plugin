@@ -58,6 +58,9 @@ final class FullmetrixExtension extends Extension implements PrependExtensionInt
         $container->setParameter('fullmetrix.events_endpoint', $config['events_endpoint']);
         $container->setParameter('fullmetrix.consent_endpoint', $config['consent_endpoint']);
         $container->setParameter('fullmetrix.tracker_origin', $config['tracker_origin']);
+        $container->setParameter('fullmetrix.tracker_local_directory', $config['tracker_local_directory']);
+        $container->setParameter('fullmetrix.tracker_local_public_path', $config['tracker_local_public_path']);
+        $container->setParameter('fullmetrix.tracker_local_base_url', $config['tracker_local_base_url']);
         $container->setParameter('fullmetrix.connect_timeout_ms', $config['connect_timeout_ms']);
         $container->setParameter('fullmetrix.total_timeout_ms', $config['total_timeout_ms']);
         $container->setParameter('fullmetrix.signature_v1', $config['signature_v1']);

@@ -37,6 +37,14 @@ final class ConfigStore implements ResetInterface
 
     public const KEY_COMMAND_NONCES = 'command_nonces';
 
+    public const KEY_LOCAL_TRACKER = 'local_tracker';
+
+    public const KEY_SITE_URL = 'site_url';
+
+    public const KEY_KEEPER = 'keeper';
+
+    public const KEY_TAG_ATTRIBUTES = 'tag_attributes';
+
     private const SYNC_STALE_AFTER_SECONDS = 600;
 
     /** @var array<string, mixed>|null */
