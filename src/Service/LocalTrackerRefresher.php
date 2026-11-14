@@ -25,9 +25,17 @@ final class LocalTrackerRefresher
 
     public const REASON_TRACKER_DISABLED = 'tracker_disabled';
 
-    private const FILE_PATTERN = '/^fm-[A-Za-z0-9_-]{1,64}\.js$/';
+    private const FILE_PATTERN = '/^[0-9a-f]{12}\.js$/';
 
-    private const TEMP_PATTERN = '/^\.fm-[A-Za-z0-9_-]{1,64}\.js\.[0-9a-f]{12}\.tmp$/';
+    private const TEMP_PATTERN = '/^\.[0-9a-f]{12}\.js\.[0-9a-f]{12}\.tmp$/';
+
+    private const LEGACY_FILE_PATTERN = '/^fm-[0-9a-f]{12}\.js$/';
+
+    private const LEGACY_TEMP_PATTERN = '/^\.fm-[0-9a-f]{12}\.js\.[0-9a-f]{12}\.tmp$/';
+
+    private const INDEX = 'index.html';
+
+    private const CONTRACT = 2;
 
     private const HOST_PATTERN = '/^[A-Za-z0-9]([A-Za-z0-9.-]{0,251}[A-Za-z0-9])?(:[0-9]{1,5})?$/';
 
@@ -61,6 +69,7 @@ final class LocalTrackerRefresher
         private readonly string $publicPath,
         private readonly ?string $baseUrl = null,
         private readonly ?ObjectRepository $channels = null,
+        private readonly string $legacyDirectory = '',
     ) {
     }
 
@@ -94,7 +103,7 @@ final class LocalTrackerRefresher
 
         $code = (string) $this->config->getConnectionCode();
         $response = $this->http->get(
-            rtrim($this->trackerOrigin, '/') . '/api/tracker/bundle?key=' . rawurlencode($code),
+            rtrim($this->trackerOrigin, '/') . '/api/tracker/bundle?key=' . rawurlencode($code) . '&contract=' . self::CONTRACT,
             $this->headers('application/json'),
             false,
             null,
@@ -121,7 +130,6 @@ final class LocalTrackerRefresher
         $version = $bundle['version'] ?? null;
         $sha = \is_string($bundle['sha256'] ?? null) ? strtolower($bundle['sha256']) : null;
         $content = $bundle['content'] ?? null;
-        $origin = $bundle['origin'] ?? null;
         if (!\is_string($version) || 1 !== preg_match(LocalTracker::VERSION_PATTERN, $version)
             || null === $sha || 1 !== preg_match('/^[0-9a-f]{64}$/', $sha)
             || !\is_string($content) || '' === $content || \strlen($content) > self::MAX_BYTES) {
@@ -130,24 +138,27 @@ final class LocalTrackerRefresher
         if (!hash_equals($sha, hash('sha256', $content))) {
             return $this->fail($state, $now, 'bad_sha256', false);
         }
-        if (!\is_string($origin) || 1 !== preg_match(LocalTracker::ORIGIN_PATTERN, $origin)) {
-            return $this->fail($state, $now, 'bad_origin', false);
-        }
 
-        return $this->install($state, $now, $version, $sha, $content, $origin);
+        return $this->install($state, $now, $version, $sha, $content);
     }
 
     public function remove(): void
     {
-        $directory = $this->directory;
-        if ('' !== $directory && is_dir($directory)) {
-            foreach ($this->entries() as $entry) {
-                if (1 === preg_match(self::FILE_PATTERN, $entry) || 1 === preg_match(self::TEMP_PATTERN, $entry)) {
+        $owned = [
+            [$this->directory, self::FILE_PATTERN, self::TEMP_PATTERN],
+            [$this->legacyDirectory, self::LEGACY_FILE_PATTERN, self::LEGACY_TEMP_PATTERN],
+        ];
+        foreach ($owned as [$directory, $filePattern, $tempPattern]) {
+            if ('' === $directory || !is_dir($directory)) {
+                continue;
+            }
+            foreach ($this->entries($directory) as $entry) {
+                if (1 === preg_match($filePattern, $entry) || 1 === preg_match($tempPattern, $entry)) {
                     @unlink($directory . '/' . $entry);
                 }
             }
-            $index = $directory . '/index.html';
-            if (is_file($index) && 0 === filesize($index)) {
+            $index = $directory . '/' . self::INDEX;
+            if ([self::INDEX] === array_values(array_diff($this->entries($directory), ['.', '..'])) && 0 === @filesize($index)) {
                 @unlink($index);
             }
             @rmdir($directory);
@@ -163,7 +174,7 @@ final class LocalTrackerRefresher
      *
      * @return array{outcome: string, path: ?string, error: ?string}
      */
-    private function install(array $state, int $now, string $version, string $sha, string $content, string $origin): array
+    private function install(array $state, int $now, string $version, string $sha, string $content): array
     {
         if (1 !== preg_match(LocalTracker::PUBLIC_PATH_PATTERN, $this->publicPath)) {
             return $this->fail($state, $now, 'bad_public_path', true);
@@ -172,7 +183,7 @@ final class LocalTrackerRefresher
             return $this->fail($state, $now, 'not_writable', true);
         }
 
-        $name = 'fm-' . $version . '.js';
+        $name = $version . '.js';
         if ($this->matches($this->directory . '/' . $name, $sha)) {
             @touch($this->directory . '/' . $name);
         } elseif (!$this->write($name, $content, $sha)) {
@@ -194,7 +205,6 @@ final class LocalTrackerRefresher
             'file' => $name,
             'version' => $version,
             'sha256' => $sha,
-            'origin' => $origin,
             'previous' => $previous,
             'checkedAt' => $now,
             'failures' => 0,
@@ -254,10 +264,10 @@ final class LocalTrackerRefresher
                 $this->config->set(ConfigStore::KEY_KEEPER, $keeper);
             }
         }
-        if (\is_array($bundle['tagAttributes'] ?? null)) {
-            $attributes = LocalTracker::tagAttributes($bundle['tagAttributes']);
-            if ($attributes !== $this->config->get(ConfigStore::KEY_TAG_ATTRIBUTES)) {
-                $this->config->set(ConfigStore::KEY_TAG_ATTRIBUTES, $attributes);
+        if (\array_key_exists('tagKey', $bundle) || \array_key_exists('origin', $bundle)) {
+            $tag = LocalTracker::tag($bundle);
+            if ($tag !== $this->config->get(ConfigStore::KEY_TAG)) {
+                $this->config->set(ConfigStore::KEY_TAG, $tag);
             }
         }
     }
@@ -348,7 +358,7 @@ final class LocalTrackerRefresher
             return false;
         }
 
-        $index = $directory . '/index.html';
+        $index = $directory . '/' . self::INDEX;
         if (!is_file($index)) {
             if (false === @file_put_contents($index, '')) {
                 return false;
@@ -394,12 +404,13 @@ final class LocalTrackerRefresher
     }
 
     /** @return array<int, string> */
-    private function entries(): array
+    private function entries(?string $directory = null): array
     {
-        if ('' === $this->directory || !is_dir($this->directory)) {
+        $directory ??= $this->directory;
+        if ('' === $directory || !is_dir($directory)) {
             return [];
         }
-        $entries = @scandir($this->directory);
+        $entries = @scandir($directory);
 
         return \is_array($entries) ? $entries : [];
     }

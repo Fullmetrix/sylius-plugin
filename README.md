@@ -36,15 +36,19 @@ In the admin, go to Marketing, then Fullmetrix, and enter the connection code sh
 
 ## Tracking script served by the store
 
-Add this line to the crontab of the user that runs the store:
+The store serves the tracking script from its own domain only when the refresh command runs from cron. Add this line to the crontab of the user that runs the store:
 
 ```bash
 */10 * * * * cd /path/to/store && bin/console fullmetrix:tracker:refresh --env=prod > /dev/null 2>&1
 ```
 
-The command downloads the verified Fullmetrix script into `public/media/fullmetrix/` and the store serves it from its own domain. Without this line, or if the folder is not writable, the script keeps loading from Fullmetrix.
+The command downloads the verified Fullmetrix script into `public/media/kvo/` and the store serves it from its own domain. Without this line, or if the folder is not writable, the script loads from `https://fullmetrix.com/assets/js/s.js`.
 
 Before uninstalling the plugin, run `bin/console fullmetrix:tracker:refresh --remove` and delete the cron line.
+
+## Service and cookies
+
+The measurement script sends page views, cart and order events to `https://fullmetrix.com` (or to a subdomain of your own store domain when you configured one in Fullmetrix) and sets first-party cookies on the store domain: `_kvo_v` (anonymous visitor id, up to 390 days), `_kvo_s` (session, 30 minutes) and `_kvo_c` (contact identifiers after a login or an order). Stores connected before version 1.8.0 keep the older `fm_vid`, `fm_sid` and `fm_cid` cookies until they expire. The store sets `_kvo_v` again on a same-origin `POST /kvo/k` so browsers keep it longer; no session is started by that request. Tracking consent is not handled by the plugin: call `fm('consent', {...})` from your tag manager or consent tool. Privacy policy: https://fullmetrix.com/privacy
 
 ## Support
 

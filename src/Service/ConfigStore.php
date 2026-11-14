@@ -43,7 +43,7 @@ final class ConfigStore implements ResetInterface
 
     public const KEY_KEEPER = 'keeper';
 
-    public const KEY_TAG_ATTRIBUTES = 'tag_attributes';
+    public const KEY_TAG = 'tag';
 
     private const SYNC_STALE_AFTER_SECONDS = 600;
 

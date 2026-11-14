@@ -30,21 +30,6 @@ final class PluginConfigProvider
         return null;
     }
 
-    public function getCheckoutConsent(): ?array
-    {
-        $config = $this->getConfig();
-        if (!\is_array($config) || empty($config['checkoutConsent'])) {
-            return null;
-        }
-
-        $consent = $config['checkoutConsent'];
-        if (!\is_array($consent) || empty($consent['label'])) {
-            return null;
-        }
-
-        return $consent;
-    }
-
     public function refreshIfStale(): void
     {
         if (!$this->config->isActive()) {

@@ -16,7 +16,9 @@ use Symfony\Component\HttpKernel\KernelEvents;
 
 final class KeeperSubscriber implements EventSubscriberInterface
 {
-    public const COOKIE_NAME = 'fm_vid';
+    public const COOKIE_NAME = '_kvo_v';
+
+    public const LEGACY_COOKIE_NAME = 'fm_vid';
 
     private const REQUEST_ATTRIBUTE = '_fullmetrix_keeper';
 
@@ -40,19 +42,20 @@ final class KeeperSubscriber implements EventSubscriberInterface
             return;
         }
         $request = $event->getRequest();
-        if (LocalTracker::KEEPER_PATH !== $request->getPathInfo() || 'POST' !== $request->getMethod()) {
+        $path = $request->getPathInfo();
+        if ((LocalTracker::KEEPER_PATH !== $path && LocalTracker::LEGACY_KEEPER_PATH !== $path) || 'POST' !== $request->getMethod()) {
             return;
         }
 
         try {
-            $cookie = $this->cookieFor($request);
-            $response = \is_int($cookie) ? self::response($cookie) : self::response(Response::HTTP_NO_CONTENT, $cookie);
+            $cookies = $this->cookiesFor($request);
+            $response = \is_int($cookies) ? self::response($cookies) : self::response(Response::HTTP_NO_CONTENT, $cookies);
         } catch (\Throwable) {
-            $cookie = null;
+            $cookies = null;
             $response = self::response(Response::HTTP_NOT_FOUND);
         }
 
-        $request->attributes->set(self::REQUEST_ATTRIBUTE, $cookie instanceof Cookie ? $cookie : false);
+        $request->attributes->set(self::REQUEST_ATTRIBUTE, \is_array($cookies) ? $cookies : false);
         $event->setResponse($response);
     }
 
@@ -68,12 +71,15 @@ final class KeeperSubscriber implements EventSubscriberInterface
             $headers->removeCookie($cookie->getName(), $cookie->getPath(), $cookie->getDomain());
         }
         $own = $request->attributes->get(self::REQUEST_ATTRIBUTE);
-        if ($own instanceof Cookie && Response::HTTP_NO_CONTENT === $event->getResponse()->getStatusCode()) {
-            $headers->setCookie($own);
+        if (\is_array($own) && Response::HTTP_NO_CONTENT === $event->getResponse()->getStatusCode()) {
+            foreach ($own as $cookie) {
+                $headers->setCookie($cookie);
+            }
         }
     }
 
-    private function cookieFor(Request $request): Cookie|int
+    /** @return array<int, Cookie>|int */
+    private function cookiesFor(Request $request): array|int
     {
         if (!$this->config->isActive() || LocalTracker::trackerDisabled($this->config->get(ConfigStore::KEY_PLUGIN_CONFIG))) {
             return Response::HTTP_NOT_FOUND;
@@ -88,47 +94,64 @@ final class KeeperSubscriber implements EventSubscriberInterface
             return Response::HTTP_FORBIDDEN;
         }
 
-        $value = self::cookieValue((string) $request->headers->get('Cookie', ''));
-        if (null === $value || 1 !== preg_match(self::UUID_V4, $value) || $request->getContent() !== $value) {
+        $header = (string) $request->headers->get('Cookie', '');
+        $fresh = self::cookieValues($header, self::COOKIE_NAME);
+        $legacy = self::cookieValues($header, self::LEGACY_COOKIE_NAME);
+        if (\count($fresh) > 1 || \count($legacy) > 1) {
+            return Response::HTTP_BAD_REQUEST;
+        }
+        if (isset($fresh[0]) && '' === $fresh[0]) {
+            $fresh = [];
+        }
+        if ([] === $fresh && [] === $legacy) {
+            return Response::HTTP_BAD_REQUEST;
+        }
+        $value = $fresh[0] ?? $legacy[0];
+        if (1 !== preg_match(self::UUID_V4, $value) || $request->getContent() !== $value) {
             return Response::HTTP_BAD_REQUEST;
         }
 
-        return Cookie::create(
-            self::COOKIE_NAME,
-            $value,
-            time() + $keeper['maxAgeDays'] * 86400,
-            '/',
-            null,
-            $request->isSecure(),
-            false,
-            true,
-            Cookie::SAMESITE_LAX,
-        );
+        $cookies = [self::cookie(self::COOKIE_NAME, $value, $keeper['maxAgeDays'], $request->isSecure())];
+        if (isset($legacy[0]) && $legacy[0] === $value) {
+            $cookies[] = self::cookie(self::LEGACY_COOKIE_NAME, $value, $keeper['maxAgeDays'], $request->isSecure());
+        }
+
+        return $cookies;
     }
 
-    private static function cookieValue(string $header): ?string
+    private static function cookie(string $name, string $value, int $days, bool $secure): Cookie
+    {
+        return Cookie::create($name, $value, time() + $days * 86400, '/', null, $secure, false, true, Cookie::SAMESITE_LAX);
+    }
+
+    /** @return array<int, string> */
+    private static function cookieValues(string $header, string $name): array
     {
         $found = [];
         foreach (explode(';', $header) as $pair) {
             $parts = explode('=', $pair, 2);
-            if (self::COOKIE_NAME === trim($parts[0])) {
+            if ($name === trim($parts[0])) {
                 $found[] = trim($parts[1] ?? '');
             }
         }
 
-        return 1 === \count($found) ? $found[0] : null;
+        return $found;
     }
 
-    private static function response(int $status, ?Cookie $cookie = null): Response
+    /** @param array<int, Cookie>|null $cookies */
+    private static function response(int $status, ?array $cookies = null): Response
     {
         $response = new Response('', $status, [
             'Cache-Control' => 'no-store, private',
             'CDN-Cache-Control' => 'no-store',
             'X-Robots-Tag' => 'noindex',
         ]);
-        if (null !== $cookie) {
+        if (null !== $cookies) {
             $response->headers->set('X-Fm-Keeper', '1');
-            $response->headers->setCookie($cookie);
+            $response->headers->set('X-Kvo-K', '1');
+            foreach ($cookies as $cookie) {
+                $response->headers->setCookie($cookie);
+            }
         }
 
         return $response;

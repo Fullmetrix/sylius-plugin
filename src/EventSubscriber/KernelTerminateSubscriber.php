@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Fullmetrix\SyliusPlugin\EventSubscriber;
 
-use Fullmetrix\SyliusPlugin\Service\CheckoutConsentSender;
 use Fullmetrix\SyliusPlugin\Service\DeliveryBreaker;
 use Fullmetrix\SyliusPlugin\Service\HttpClient;
 use Fullmetrix\SyliusPlugin\Service\PluginConfigProvider;
@@ -16,7 +15,6 @@ use Symfony\Component\HttpKernel\KernelEvents;
 final class KernelTerminateSubscriber implements EventSubscriberInterface
 {
     public function __construct(
-        private readonly CheckoutConsentSender $consentSender,
         private readonly WebhookQueue $webhookQueue,
         private readonly TrackingQueue $trackingQueue,
         private readonly PluginConfigProvider $pluginConfig,
@@ -38,11 +36,6 @@ final class KernelTerminateSubscriber implements EventSubscriberInterface
 
         try {
             $this->webhookQueue->flush();
-        } catch (\Throwable) {
-        }
-
-        try {
-            $this->consentSender->flush();
         } catch (\Throwable) {
         }
 

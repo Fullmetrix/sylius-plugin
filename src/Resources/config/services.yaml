@@ -7,7 +7,6 @@ services:
             string $apiBase: '%fullmetrix.api_base%'
             string $webhookEndpoint: '%fullmetrix.webhook_endpoint%'
             string $eventsEndpoint: '%fullmetrix.events_endpoint%'
-            string $consentEndpoint: '%fullmetrix.consent_endpoint%'
             string $trackerOrigin: '%fullmetrix.tracker_origin%'
             int $connectTimeoutMs: '%fullmetrix.connect_timeout_ms%'
             int $totalTimeoutMs: '%fullmetrix.total_timeout_ms%'
@@ -25,6 +24,7 @@ services:
             $publicPath: '%fullmetrix.tracker_local_public_path%'
             $baseUrl: '%fullmetrix.tracker_local_base_url%'
             $channels: '@sylius.repository.channel'
+            $legacyDirectory: '%fullmetrix.tracker_local_legacy_directory%'
 
     Fullmetrix\SyliusPlugin\Command\:
         resource: '../../Command/*'
